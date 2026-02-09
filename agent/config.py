@@ -1,0 +1,25 @@
+"""Local agent configuration."""
+
+import os
+
+# Folder to watch for new call recordings
+# Android: "/storage/emulated/0/Recordings/Call"
+# Windows: "C:/Users/YourName/CallRecordings"
+WATCH_FOLDER = os.environ.get("WATCH_FOLDER", "C:/Users/zivre/CallRecordings")
+
+# API endpoint for triggering processing
+API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:8000/api/webhooks/s3-upload")
+
+# AWS S3 settings (reads from environment or .env)
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "calls-summery")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+
+# Agent behavior
+AUTO_UPLOAD_ENABLED = os.environ.get("AUTO_UPLOAD", "true").lower() == "true"
+WATCH_INTERVAL_SECONDS = int(os.environ.get("WATCH_INTERVAL", "5"))
+SETTLE_TIME_SECONDS = int(os.environ.get("SETTLE_TIME", "5"))
+
+# Supported audio extensions
+AUDIO_EXTENSIONS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac"}

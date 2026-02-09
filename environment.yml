@@ -1,0 +1,32 @@
+name: calls_summery
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - fastapi
+    - uvicorn[standard]
+    - sqlalchemy[asyncio]
+    - alembic
+    - asyncpg
+    - pydantic
+    - pydantic-settings
+    - boto3
+    - deepgram-sdk
+    - anthropic
+    - sendgrid
+    - celery[redis]
+    - redis
+    - python-multipart
+    - python-jose[cryptography]
+    - passlib[bcrypt]
+    - streamlit
+    - watchdog
+    - httpx
+    - tenacity
+    - psycopg2-binary
+    - pytest
+    - pytest-asyncio
+    - pytest-cov
+    - httpx

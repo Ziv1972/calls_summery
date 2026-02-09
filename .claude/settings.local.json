@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where:*)",
+      "Bash(conda env list:*)",
+      "Bash(conda create:*)",
+      "Bash(conda run:*)",
+      "Bash(docker:*)",
+      "Bash(systeminfo:*)",
+      "Bash(findstr:*)",
+      "Bash(conda install:*)",
+      "Bash(curl:*)",
+      "Bash(set TEMP_DIR=%TEMP%)",
+      "Bash(powershell:*)",
+      "Bash(dir:*)",
+      "Bash(\"C:\\\\tools\\\\redis\\\\redis-server.exe\" --version)",
+      "WebFetch(domain:assemblyai.com)",
+      "WebFetch(domain:www.assemblyai.com)"
+    ]
+  }
+}
