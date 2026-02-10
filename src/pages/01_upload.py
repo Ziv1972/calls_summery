@@ -58,6 +58,6 @@ if uploaded_file is not None:
                     st.error(f"Upload failed: HTTP {response.status_code} - {response.text}")
 
             except httpx.ConnectError:
-                st.error("Cannot connect to API server. Make sure FastAPI is running on port 8000.")
+                st.error("Cannot connect to API server. Make sure FastAPI is running on port 8001.")
             except Exception as e:
                 st.error(f"Upload failed: {e}")
