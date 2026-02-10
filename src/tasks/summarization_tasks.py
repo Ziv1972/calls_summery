@@ -37,13 +37,14 @@ def process_summarization(
             call.status = CallStatus.SUMMARIZING
             session.commit()
 
-            # Summarize
+            # Summarize - pass speaker segments for better context
             summarization_svc = SummarizationService()
             summary_language = language if language != "auto" else (transcription.language or "auto")
 
             result = summarization_svc.summarize(
                 transcription_text=transcription.text or "",
                 language=summary_language,
+                speakers=transcription.speakers if transcription.speakers else None,
             )
 
             # Save summary

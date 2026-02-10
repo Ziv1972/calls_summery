@@ -52,6 +52,7 @@ class TranscriptionService:
             "diarize": True,
             "utterances": True,
             "punctuate": True,
+            "paragraphs": True,
         }
 
         if language_code:
@@ -76,6 +77,7 @@ class TranscriptionService:
             "diarize": True,
             "utterances": True,
             "punctuate": True,
+            "paragraphs": True,
         }
 
         if language_code:
