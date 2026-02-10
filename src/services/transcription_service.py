@@ -1,10 +1,9 @@
 """Deepgram transcription service."""
 
 import logging
-import time
 from dataclasses import dataclass, field
 
-from deepgram import DeepgramClient, PrerecordedOptions, FileSource
+from deepgram import DeepgramClient, ListenV1Response
 
 from src.config.settings import get_settings
 
@@ -37,7 +36,7 @@ class TranscriptionService:
 
     def __init__(self):
         settings = get_settings()
-        self._client = DeepgramClient(settings.deepgram_api_key)
+        self._client = DeepgramClient(api_key=settings.deepgram_api_key)
 
     def transcribe_sync(
         self, audio_url: str, language_code: str | None = None
@@ -46,15 +45,18 @@ class TranscriptionService:
 
         Uses Deepgram Nova-3 with speaker diarization.
         """
-        options = PrerecordedOptions(
-            model="nova-3",
-            smart_format=True,
-            diarize=True,
-            language=language_code if language_code else None,
-            detect_language=language_code is None,
-            utterances=True,
-            punctuate=True,
-        )
+        options = {
+            "model": "nova-3",
+            "smart_format": True,
+            "diarize": True,
+            "utterances": True,
+            "punctuate": True,
+        }
+
+        if language_code:
+            options["language"] = language_code
+        else:
+            options["detect_language"] = True
 
         logger.info("Submitting transcription to Deepgram for %s", audio_url[:80])
 
@@ -69,19 +71,22 @@ class TranscriptionService:
         self, file_data: bytes, mimetype: str, language_code: str | None = None
     ) -> TranscriptionResult:
         """Transcribe audio from file bytes (blocking)."""
-        options = PrerecordedOptions(
-            model="nova-3",
-            smart_format=True,
-            diarize=True,
-            language=language_code if language_code else None,
-            detect_language=language_code is None,
-            utterances=True,
-            punctuate=True,
-        )
+        options = {
+            "model": "nova-3",
+            "smart_format": True,
+            "diarize": True,
+            "utterances": True,
+            "punctuate": True,
+        }
+
+        if language_code:
+            options["language"] = language_code
+        else:
+            options["detect_language"] = True
 
         logger.info("Submitting file transcription to Deepgram (%d bytes)", len(file_data))
 
-        source: FileSource = {"buffer": file_data, "mimetype": mimetype}
+        source = {"buffer": file_data, "mimetype": mimetype}
         response = self._client.listen.rest.v("1").transcribe_file(
             source,
             options,
@@ -89,7 +94,7 @@ class TranscriptionService:
 
         return self._parse_response(response)
 
-    def _parse_response(self, response) -> TranscriptionResult:
+    def _parse_response(self, response: ListenV1Response) -> TranscriptionResult:
         """Parse Deepgram response into immutable result."""
         result = response.results
         channel = result.channels[0]
@@ -101,7 +106,7 @@ class TranscriptionService:
 
         # Extract detected language
         language = "unknown"
-        if hasattr(result, "channels") and channel.detected_language:
+        if hasattr(channel, "detected_language") and channel.detected_language:
             language = channel.detected_language
         elif hasattr(response, "metadata") and hasattr(response.metadata, "language"):
             language = response.metadata.language or "unknown"

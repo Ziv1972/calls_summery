@@ -4,6 +4,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from typing import BinaryIO
+from urllib.parse import quote
 
 import boto3
 from botocore.exceptions import ClientError
@@ -65,7 +66,7 @@ class StorageService:
                 Key=s3_key,
                 Body=content,
                 ContentType=content_type,
-                Metadata={"original_filename": original_filename},
+                Metadata={"original_filename": quote(original_filename)},
             )
         except ClientError as e:
             logger.error("S3 upload failed: %s", e)
