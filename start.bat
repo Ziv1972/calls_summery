@@ -3,6 +3,10 @@ echo ====================================
 echo   Calls Summary - Starting Services
 echo ====================================
 
+REM Fix Hebrew/UTF-8 encoding on Windows
+set PYTHONUTF8=1
+set PYTHONIOENCODING=utf-8
+
 echo.
 echo [1/3] Starting PostgreSQL...
 conda run -n calls_summery pg_ctl -D "C:/Users/zivre/pgdata" -l "C:/Users/zivre/pgdata/pg.log" start 2>nul
@@ -23,10 +27,10 @@ echo.
 echo [3/3] Ready! Open 4 separate terminals and run:
 echo.
 echo   Terminal 1 (Celery):
-echo     conda run -n calls_summery celery -A src.tasks.celery_app worker --loglevel=info --pool=solo
+echo     run_celery.bat
 echo.
 echo   Terminal 2 (API):
-echo     conda run -n calls_summery uvicorn src.api.main:app --reload
+echo     run_api.bat
 echo.
 echo   Terminal 3 (Streamlit):
 echo     conda run -n calls_summery streamlit run src/app.py
@@ -34,8 +38,10 @@ echo.
 echo   Terminal 4 (Agent - auto-upload watcher):
 echo     conda run -n calls_summery python -m agent.watcher
 echo.
+echo   IMPORTANT: Use run_celery.bat and run_api.bat to ensure UTF-8 encoding!
+echo.
 echo ====================================
-echo   API docs: http://localhost:8000/docs
+echo   API docs: http://localhost:8001/docs
 echo   UI:       http://localhost:8501
 echo   Watch:    C:/Users/zivre/CallRecordings
 echo ====================================

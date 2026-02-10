@@ -7,7 +7,7 @@ import httpx
 
 from src.utils.formatters import format_status_badge
 
-API_BASE = "http://localhost:8000/api"
+API_BASE = "http://localhost:8001/api"
 
 
 def _build_download_text(

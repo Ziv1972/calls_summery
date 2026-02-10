@@ -15,7 +15,7 @@ load_dotenv(_project_root / ".env")
 WATCH_FOLDER = os.environ.get("WATCH_FOLDER", "C:/Users/zivre/CallRecordings")
 
 # API endpoint for triggering processing
-API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:8000/api/webhooks/s3-upload")
+API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:8001/api/webhooks/s3-upload")
 
 # AWS S3 settings (loaded from .env)
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "amzn-callsummery")

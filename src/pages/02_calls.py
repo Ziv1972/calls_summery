@@ -5,7 +5,7 @@ import httpx
 
 from src.utils.formatters import format_duration, format_file_size, format_status_badge
 
-API_BASE = "http://localhost:8000/api"
+API_BASE = "http://localhost:8001/api"
 
 st.header("📋 Call History")
 

@@ -29,7 +29,7 @@ Use the sidebar to navigate between pages:
 """)
 
 # API health check
-API_BASE = "http://localhost:8000/api"
+API_BASE = "http://localhost:8001/api"
 
 try:
     import httpx

@@ -3,15 +3,15 @@
 import streamlit as st
 import httpx
 
-API_BASE = "http://localhost:8000/api"
+API_BASE = "http://localhost:8001/api"
 
 st.header("📤 Upload Call Recording")
 
 # Language selection
 language = st.selectbox(
     "Summary Language",
-    options=["auto", "he", "en"],
-    format_func=lambda x: {"auto": "Auto-detect", "he": "Hebrew (עברית)", "en": "English"}[x],
+    options=["he", "en", "auto"],
+    format_func=lambda x: {"auto": "Auto-detect (less reliable)", "he": "Hebrew (עברית)", "en": "English"}[x],
     index=0,
 )
 

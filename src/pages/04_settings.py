@@ -3,7 +3,7 @@
 import streamlit as st
 import httpx
 
-API_BASE = "http://localhost:8000/api"
+API_BASE = "http://localhost:8001/api"
 
 LANGUAGE_OPTIONS = {"auto": "Auto-detect", "he": "Hebrew (עברית)", "en": "English"}
 METHOD_OPTIONS = {
