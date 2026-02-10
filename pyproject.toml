@@ -11,6 +11,27 @@ python_classes = "Test*"
 python_functions = "test_*"
 addopts = "-v --tb=short"
 
+[tool.coverage.run]
+source = ["src", "agent"]
+omit = [
+    "src/pages/*",
+    "src/app.py",
+    "src/config/logging.py",
+    "src/models/database.py",
+    "src/tasks/celery_app.py",
+    "src/api/main.py",
+    "src/api/deps.py",
+    "src/api/routes/*",
+    "src/repositories/*",
+    "src/services/call_service.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if __name__",
+    "pragma: no cover",
+]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
