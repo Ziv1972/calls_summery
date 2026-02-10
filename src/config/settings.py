@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     allowed_audio_formats: list[str] = [
         "audio/mpeg",
         "audio/mp4",
+        "video/mp4",
         "audio/wav",
         "audio/x-m4a",
         "audio/ogg",

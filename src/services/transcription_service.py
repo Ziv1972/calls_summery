@@ -45,7 +45,8 @@ class TranscriptionService:
 
         Uses Deepgram Nova-3 with speaker diarization.
         """
-        options = {
+        kwargs = {
+            "url": audio_url,
             "model": "nova-3",
             "smart_format": True,
             "diarize": True,
@@ -54,16 +55,13 @@ class TranscriptionService:
         }
 
         if language_code:
-            options["language"] = language_code
+            kwargs["language"] = language_code
         else:
-            options["detect_language"] = True
+            kwargs["detect_language"] = True
 
         logger.info("Submitting transcription to Deepgram for %s", audio_url[:80])
 
-        response = self._client.listen.rest.v("1").transcribe_url(
-            {"url": audio_url},
-            options,
-        )
+        response = self._client.listen.v1.media.transcribe_url(**kwargs)
 
         return self._parse_response(response)
 
@@ -71,7 +69,8 @@ class TranscriptionService:
         self, file_data: bytes, mimetype: str, language_code: str | None = None
     ) -> TranscriptionResult:
         """Transcribe audio from file bytes (blocking)."""
-        options = {
+        kwargs = {
+            "request": file_data,
             "model": "nova-3",
             "smart_format": True,
             "diarize": True,
@@ -80,17 +79,13 @@ class TranscriptionService:
         }
 
         if language_code:
-            options["language"] = language_code
+            kwargs["language"] = language_code
         else:
-            options["detect_language"] = True
+            kwargs["detect_language"] = True
 
         logger.info("Submitting file transcription to Deepgram (%d bytes)", len(file_data))
 
-        source = {"buffer": file_data, "mimetype": mimetype}
-        response = self._client.listen.rest.v("1").transcribe_file(
-            source,
-            options,
-        )
+        response = self._client.listen.v1.media.transcribe_file(**kwargs)
 
         return self._parse_response(response)
 
@@ -127,7 +122,7 @@ class TranscriptionService:
             for utterance in result.utterances:
                 speakers.append({
                     "speaker": f"Speaker {utterance.speaker}",
-                    "text": utterance.text,
+                    "text": utterance.transcript,
                     "start": int(utterance.start * 1000),
                     "end": int(utterance.end * 1000),
                 })

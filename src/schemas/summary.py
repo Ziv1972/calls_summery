@@ -40,7 +40,7 @@ class TranscriptionResponse(BaseModel):
     confidence: float | None = None
     language: str | None = None
     duration_seconds: float | None = None
-    speakers: dict | None = None
+    speakers: list[dict] | None = None
     words_count: int | None = None
     status: str
     created_at: datetime
