@@ -60,7 +60,7 @@ async def s3_upload_event(
     # Trigger processing
     from src.tasks.transcription_tasks import process_transcription
 
-    process_transcription.delay(str(call.id), "auto")
+    process_transcription.delay(str(call.id), "he")
 
     logger.info("Auto-upload registered: %s (call_id=%s)", payload.key, call.id)
     return {"status": "processing", "call_id": str(call.id)}
