@@ -57,10 +57,18 @@ async def s3_upload_event(
     })
     await session.commit()
 
+    # Read language preference from user settings
+    from sqlalchemy import select
+    from src.models.settings import UserSettings
+
+    result = await session.execute(select(UserSettings).limit(1))
+    user_settings = result.scalar_one_or_none()
+    language = user_settings.summary_language if user_settings else "he"
+
     # Trigger processing
     from src.tasks.transcription_tasks import process_transcription
 
-    process_transcription.delay(str(call.id), "he")
+    process_transcription.delay(str(call.id), language)
 
     logger.info("Auto-upload registered: %s (call_id=%s)", payload.key, call.id)
     return {"status": "processing", "call_id": str(call.id)}

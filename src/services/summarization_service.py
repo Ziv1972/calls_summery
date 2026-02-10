@@ -10,17 +10,25 @@ from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_PROMPT_TEMPLATE = """Analyze the following phone call transcription and provide a structured summary.
+SUMMARY_PROMPT_TEMPLATE = """You are an expert at analyzing phone call transcriptions and producing detailed, actionable summaries.
+
+Analyze the following phone call transcription thoroughly.
 
 {language_instruction}
 
-Provide your response in the following JSON format:
+IMPORTANT RULES:
+- The "summary" field must be a detailed paragraph (5-10 sentences) covering the main topics, decisions, and outcomes of the call. Do NOT write just 1-2 sentences.
+- List ALL key points discussed, not just the main one. Aim for 5-10 key points for longer calls.
+- Extract EVERY action item, commitment, or follow-up mentioned. Include who is responsible if mentioned.
+- If speakers are identified (e.g. "Speaker 0", "Speaker 1"), try to identify their roles based on context (e.g. "customer", "agent", "manager").
+
+Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
 {{
-  "summary": "A concise 2-3 sentence summary of the call",
-  "key_points": ["Key point 1", "Key point 2", ...],
+  "summary": "Detailed paragraph summarizing the entire call...",
+  "key_points": ["Key point 1", "Key point 2", "Key point 3", ...],
   "action_items": ["Action item 1", "Action item 2", ...],
-  "sentiment": "positive" | "neutral" | "negative",
-  "participants": ["Person 1", "Person 2", ...]
+  "sentiment": "positive" | "neutral" | "negative" | "mixed",
+  "participants": ["Role/Name 1", "Role/Name 2", ...]
 }}
 
 Transcription:
@@ -80,7 +88,7 @@ class SummarizationService:
 
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=2048,
+            max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
 
