@@ -10,24 +10,26 @@ from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_PROMPT_TEMPLATE = """You are an expert at analyzing phone call transcriptions. You produce detailed, actionable summaries.
+SUMMARY_PROMPT_TEMPLATE = """You summarize phone call transcriptions. Report ONLY what was said - no opinions, no analysis, no recommendations.
 
 {language_instruction}
 
 RULES:
-1. "summary": Write a comprehensive paragraph (5-10 sentences). Include: who called whom and why, all main topics discussed, decisions made, agreements reached, and outcome/next steps. Be specific - use names, numbers, dates, and details from the conversation.
-2. "key_points": List 5-10 important points as complete sentences with context. Don't just name topics - explain what was said about each topic, by whom, and what was decided.
-3. "action_items": Extract EVERY commitment, task, follow-up, or promise. Format each as "[Person/Role] - [specific action with details]". If no action items exist, use an empty array.
-4. "sentiment": Overall emotional tone of the call.
-5. "participants": Identify each speaker by role/name based on context (e.g., "Speaker 0 - David (Customer)", "Speaker 1 - Support Agent"). Use actual names when mentioned.
+1. "summary": Write a factual paragraph (3-7 sentences). State: who spoke, the purpose of the call, what was discussed, what was decided, and any next steps. Use names, numbers, and dates mentioned in the call. Do NOT add your own interpretation or assessment.
+2. "key_points": List 3-7 important points as factual sentences. Report what was said by whom and what was decided. Do NOT add context or analysis that wasn't in the conversation.
+3. "action_items": Extract commitments, tasks, or promises made during the call. Format: "[Person] - [action]". Empty array if none.
+4. "sentiment": The emotional tone of the call (positive/neutral/negative/mixed).
+5. "participants": Identify speakers by name/role based on context.
 
-Respond ONLY with valid JSON (no markdown, no code blocks, no extra text):
+CRITICAL: Write ONLY in the specified language. Never mix languages. If instructed to write in Hebrew, every word must be in Hebrew (except proper nouns like company names).
+
+Respond ONLY with valid JSON:
 {{
   "summary": "...",
   "key_points": ["...", "..."],
-  "action_items": ["Person - specific action", "..."],
+  "action_items": ["Person - action", "..."],
   "sentiment": "positive" | "neutral" | "negative" | "mixed",
-  "participants": ["Speaker 0 - Role/Name", "Speaker 1 - Role/Name"]
+  "participants": ["Speaker 0 - Name/Role", "Speaker 1 - Name/Role"]
 }}
 
 CALL TRANSCRIPTION:
@@ -36,8 +38,8 @@ CALL TRANSCRIPTION:
 
 LANGUAGE_INSTRUCTIONS = {
     "auto": "Respond in the same language as the transcription.",
-    "he": "Respond in Hebrew (עברית). All text in the JSON should be in Hebrew.",
-    "en": "Respond in English. All text in the JSON should be in English.",
+    "he": "חובה לכתוב בעברית בלבד. כל הטקסט ב-JSON חייב להיות בעברית. אסור לערבב עברית ואנגלית.",
+    "en": "Respond in English only. All text in the JSON must be in English.",
 }
 
 
@@ -102,7 +104,7 @@ class SummarizationService:
 
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=4096,
+            max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
 

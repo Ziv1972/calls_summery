@@ -57,6 +57,19 @@ def _build_download_text(
     return "\n".join(lines)
 
 
+# RTL support for Hebrew content
+st.markdown("""
+<style>
+    .rtl { direction: rtl; text-align: right; }
+    div[data-testid="stMarkdown"] p,
+    div[data-testid="stMarkdown"] li,
+    div[data-testid="stMarkdown"] ul {
+        direction: rtl;
+        text-align: right;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.header("Call Summary")
 
 # Get call ID from session state or input
