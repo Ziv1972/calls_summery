@@ -20,11 +20,21 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: str = Field(default="development")
 
-    # Database
+    # Database - Railway provides DATABASE_URL in standard format
     database_url: str = "postgresql+asyncpg://postgres@localhost:5432/calls_summery"
 
-    # Redis
+    # Redis - Railway provides REDIS_URL
     redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("database_url")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        """Ensure database URL uses asyncpg driver for SQLAlchemy async."""
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://") and "+asyncpg" not in v:
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # AWS S3
     aws_access_key_id: str = ""
