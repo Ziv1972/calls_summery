@@ -38,8 +38,16 @@ class CallRecordingHandler(FileSystemEventHandler):
         """Called when a new file is created."""
         if event.is_directory:
             return
+        self._handle_new_file(event.src_path)
 
-        file_path = event.src_path
+    def on_moved(self, event):
+        """Called when a file is renamed/moved (Syncthing uses rename)."""
+        if event.is_directory:
+            return
+        self._handle_new_file(event.dest_path)
+
+    def _handle_new_file(self, file_path: str):
+        """Process a newly detected audio file."""
         ext = os.path.splitext(file_path)[1].lower()
 
         if ext not in AUDIO_EXTENSIONS:
@@ -80,6 +88,7 @@ class CallRecordingHandler(FileSystemEventHandler):
                     "key": result["key"],
                     "size": result["size"],
                     "content_type": result["content_type"],
+                    "original_filename": result["original_filename"],
                 },
                 timeout=30,
             )
@@ -98,6 +107,31 @@ class CallRecordingHandler(FileSystemEventHandler):
             logger.error("Failed to notify API: %s", e)
 
 
+def scan_existing_files(handler: CallRecordingHandler):
+    """Process audio files already present in the watch folder."""
+    for filename in os.listdir(WATCH_FOLDER):
+        file_path = os.path.join(WATCH_FOLDER, filename)
+        if not os.path.isfile(file_path):
+            continue
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in AUDIO_EXTENSIONS:
+            logger.info("Found existing file: %s", filename)
+            handler._handle_new_file(file_path)
+
+
+def _collect_existing_files():
+    """Return set of all audio file paths currently in watch folder."""
+    existing = set()
+    for filename in os.listdir(WATCH_FOLDER):
+        file_path = os.path.join(WATCH_FOLDER, filename)
+        if not os.path.isfile(file_path):
+            continue
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in AUDIO_EXTENSIONS:
+            existing.add(file_path)
+    return existing
+
+
 def main():
     """Run the file watcher."""
     if not os.path.isdir(WATCH_FOLDER):
@@ -111,6 +145,33 @@ def main():
     logger.info("API endpoint: %s", API_ENDPOINT)
 
     handler = CallRecordingHandler()
+
+    if "--scan-existing" in sys.argv:
+        logger.info("Scanning existing files in watch folder...")
+        scan_existing_files(handler)
+    elif "--process-file" in sys.argv:
+        # Process a specific file by name pattern
+        idx = sys.argv.index("--process-file") + 1
+        if idx < len(sys.argv):
+            pattern = sys.argv[idx]
+            for filename in os.listdir(WATCH_FOLDER):
+                if pattern in filename:
+                    file_path = os.path.join(WATCH_FOLDER, filename)
+                    logger.info("Processing specific file: %s", filename)
+                    handler._handle_new_file(file_path)
+                    break
+            else:
+                logger.error("No file matching '%s' found", pattern)
+                sys.exit(1)
+        else:
+            logger.error("--process-file requires a filename pattern")
+            sys.exit(1)
+    else:
+        # Mark all existing files as already processed so only new arrivals trigger
+        existing = _collect_existing_files()
+        handler._processed = existing
+        logger.info("Marked %d existing files as already processed", len(existing))
+
     observer = Observer()
     observer.schedule(handler, WATCH_FOLDER, recursive=False)
     observer.start()

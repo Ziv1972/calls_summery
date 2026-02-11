@@ -2,6 +2,7 @@
 
 import logging
 import os
+import urllib.parse
 import uuid
 
 import boto3
@@ -49,7 +50,9 @@ def upload_file_to_s3(file_path: str) -> dict | None:
             s3_key,
             ExtraArgs={
                 "ContentType": content_type,
-                "Metadata": {"original_filename": filename},
+                "Metadata": {
+                    "original_filename": urllib.parse.quote(filename, safe=""),
+                },
             },
         )
 

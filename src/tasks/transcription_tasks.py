@@ -43,11 +43,13 @@ def process_transcription(self, call_id: str, language: str = "auto"):
             storage = StorageService()
             presigned = storage.generate_presigned_url(call.s3_key, expires_in=7200)
 
-            # Transcribe
+            # Transcribe - default to Hebrew when auto-detect
+            # (Deepgram misdetects Hebrew as French with auto-detect)
             transcription_svc = TranscriptionService()
+            transcription_language = language if language != "auto" else "he"
             result = transcription_svc.transcribe_sync(
                 audio_url=presigned.url,
-                language_code=language if language != "auto" else None,
+                language_code=transcription_language,
             )
 
             # Save transcription
@@ -73,12 +75,18 @@ def process_transcription(self, call_id: str, language: str = "auto"):
             call.duration_seconds = result.duration_seconds
             session.commit()
 
-            logger.info("Transcription complete for call %s", call_id)
+            logger.info(
+                "Transcription complete for call %s: %d words, %.1fs, language=%s, speakers=%d",
+                call_id, result.words_count, result.duration_seconds,
+                result.language, len(result.speakers),
+            )
+            if not result.text.strip():
+                logger.warning("Transcription returned EMPTY text for call %s", call_id)
 
             # Chain to summarization
             from src.tasks.summarization_tasks import process_summarization
 
-            process_summarization.delay(call_id, str(transcription.id), language)
+            process_summarization.delay(call_id, str(transcription.id), transcription_language)
 
     except Exception as exc:
         logger.error("Transcription failed for call %s: %s", call_id, exc)

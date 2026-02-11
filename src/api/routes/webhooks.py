@@ -20,6 +20,7 @@ class S3EventPayload(BaseModel):
     key: str
     size: int
     content_type: str = "audio/mpeg"
+    original_filename: str | None = None
 
 
 @router.post("/s3-upload")
@@ -45,9 +46,10 @@ async def s3_upload_event(
 
     # Create call record
     filename = payload.key.split("/")[-1]
+    original = payload.original_filename or filename
     call = await call_repo.create({
         "filename": filename,
-        "original_filename": filename,
+        "original_filename": original,
         "s3_key": payload.key,
         "s3_bucket": payload.bucket,
         "file_size_bytes": payload.size,

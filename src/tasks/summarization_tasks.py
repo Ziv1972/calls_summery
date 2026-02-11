@@ -39,7 +39,13 @@ def process_summarization(
 
             # Summarize - pass speaker segments for better context
             summarization_svc = SummarizationService()
-            summary_language = language if language != "auto" else (transcription.language or "auto")
+            # Resolve language: use explicit setting, or detected language, or default to Hebrew
+            if language not in ("auto", "unknown"):
+                summary_language = language
+            elif transcription.language and transcription.language not in ("auto", "unknown"):
+                summary_language = transcription.language
+            else:
+                summary_language = "he"
 
             result = summarization_svc.summarize(
                 transcription_text=transcription.text or "",

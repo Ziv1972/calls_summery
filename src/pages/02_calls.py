@@ -1,6 +1,11 @@
 """Calls page - view all calls with status."""
 
+import os
+import sys
 import time
+
+# Ensure project root is on path for src imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
 import httpx

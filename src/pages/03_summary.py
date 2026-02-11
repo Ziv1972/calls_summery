@@ -1,6 +1,11 @@
 """Summary page - view transcription and summary for a call."""
 
 import json
+import os
+import sys
+
+# Ensure project root is on path for src imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
 import httpx
