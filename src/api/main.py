@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from src.api.routes import calls, health, settings as settings_routes, summaries, webhooks
 from src.config.logging import setup_logging
@@ -28,6 +29,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.get("/")
+    async def root():
+        return RedirectResponse(url="/docs")
 
     # Register routes
     app.include_router(health.router, prefix="/api")
