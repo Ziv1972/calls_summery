@@ -15,8 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 EXPOSE 8000
 
-# Default: run API server. Override for worker/streamlit.
-CMD ["gunicorn", "src.api.main:app", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+# Entrypoint decides: API (default) or worker (SERVICE_TYPE=worker)
+ENTRYPOINT ["./entrypoint.sh"]
