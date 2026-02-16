@@ -50,6 +50,7 @@ class CallService:
         original_filename: str,
         content_type: str,
         upload_source: UploadSource = UploadSource.MANUAL,
+        user_id: uuid.UUID | None = None,
     ) -> uuid.UUID:
         """Upload a call recording to S3 and create DB record."""
         upload_result = self._storage.upload_file(
@@ -67,6 +68,7 @@ class CallService:
             "content_type": content_type,
             "upload_source": upload_source,
             "status": CallStatus.UPLOADED,
+            "user_id": user_id,
         })
 
         await self._session.commit()

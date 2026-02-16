@@ -19,6 +19,8 @@ from src.models.transcription import Transcription  # noqa: F401
 from src.models.summary import Summary  # noqa: F401
 from src.models.notification import Notification  # noqa: F401
 from src.models.settings import UserSettings  # noqa: F401
+from src.models.user import User  # noqa: F401
+from src.models.api_key import ApiKey  # noqa: F401
 
 config = context.config
 

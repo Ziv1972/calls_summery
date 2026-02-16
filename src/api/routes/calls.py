@@ -6,8 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_session
+from src.api.middleware.auth import get_current_user
 from src.config.settings import get_settings
 from src.models.call import UploadSource
+from src.models.user import User
 from src.repositories.call_repository import CallRepository
 from src.schemas.call import CallResponse, CallStatusResponse, CallUploadRequest
 from src.schemas.common import ApiResponse, PaginatedResponse
@@ -21,6 +23,7 @@ async def upload_call(
     file: UploadFile,
     language: str = "auto",
     upload_source: str = "manual",
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """Upload a call recording and start processing."""
@@ -53,6 +56,7 @@ async def upload_call(
         original_filename=file.filename or "unknown.mp3",
         content_type=file.content_type or "audio/mpeg",
         upload_source=source,
+        user_id=current_user.id,
     )
 
     # Trigger async processing via Celery
@@ -74,11 +78,12 @@ async def upload_call(
 async def list_calls(
     page: int = 1,
     page_size: int = 20,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """List all calls with pagination."""
+    """List all calls for the current user with pagination."""
     call_repo = CallRepository(session)
-    result = await call_repo.find_all(page=page, page_size=page_size)
+    result = await call_repo.find_by_user(current_user.id, page=page, page_size=page_size)
 
     return PaginatedResponse(
         items=[CallResponse.model_validate(c) for c in result.items],
@@ -92,13 +97,14 @@ async def list_calls(
 @router.get("/{call_id}", response_model=ApiResponse[CallResponse])
 async def get_call(
     call_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get call details by ID."""
+    """Get call details by ID (must belong to current user)."""
     call_repo = CallRepository(session)
     call = await call_repo.find_by_id(call_id)
 
-    if call is None:
+    if call is None or call.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Call not found")
 
     return ApiResponse(success=True, data=CallResponse.model_validate(call))
@@ -107,9 +113,16 @@ async def get_call(
 @router.get("/{call_id}/status", response_model=ApiResponse[CallStatusResponse])
 async def get_call_status(
     call_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get processing status for a call."""
+    """Get processing status for a call (must belong to current user)."""
+    # Verify ownership
+    call_repo = CallRepository(session)
+    call = await call_repo.find_by_id(call_id)
+    if call is None or call.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Call not found")
+
     call_service = CallService(session)
 
     try:

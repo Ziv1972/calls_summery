@@ -3,12 +3,14 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_session
+from src.api.middleware.auth import get_current_user
 from src.models.settings import NotificationMethod, UserSettings
+from src.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +39,15 @@ class SettingsUpdate(BaseModel):
     auto_upload_enabled: bool | None = None
 
 
-async def _get_or_create_settings(session: AsyncSession) -> UserSettings:
-    """Get the single settings row, or create default if missing."""
-    result = await session.execute(select(UserSettings).limit(1))
+async def _get_or_create_settings(session: AsyncSession, user_id) -> UserSettings:
+    """Get settings for user, or create default if missing."""
+    result = await session.execute(
+        select(UserSettings).where(UserSettings.user_id == user_id)
+    )
     settings = result.scalar_one_or_none()
 
     if settings is None:
-        settings = UserSettings()
+        settings = UserSettings(user_id=user_id)
         session.add(settings)
         await session.flush()
         await session.refresh(settings)
@@ -52,9 +56,12 @@ async def _get_or_create_settings(session: AsyncSession) -> UserSettings:
 
 
 @router.get("")
-async def get_settings(session: AsyncSession = Depends(get_session)):
+async def get_settings(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
     """Get current user settings."""
-    settings = await _get_or_create_settings(session)
+    settings = await _get_or_create_settings(session, current_user.id)
 
     return {
         "success": True,
@@ -72,10 +79,11 @@ async def get_settings(session: AsyncSession = Depends(get_session)):
 @router.put("")
 async def update_settings(
     update: SettingsUpdate,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """Update user settings."""
-    settings = await _get_or_create_settings(session)
+    settings = await _get_or_create_settings(session, current_user.id)
 
     if update.summary_language is not None:
         settings.summary_language = update.summary_language
@@ -98,7 +106,7 @@ async def update_settings(
     await session.commit()
     await session.refresh(settings)
 
-    logger.info("Settings updated: notify=%s, method=%s", settings.notify_on_complete, settings.notification_method)
+    logger.info("Settings updated for user %s: notify=%s, method=%s", current_user.id, settings.notify_on_complete, settings.notification_method)
 
     return {
         "success": True,

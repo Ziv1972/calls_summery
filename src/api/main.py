@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from src.api.routes import calls, health, settings as settings_routes, summaries, webhooks
+from src.api.routes import api_keys, auth, calls, health, settings as settings_routes, summaries, webhooks
 from src.config.logging import setup_logging
 from src.config.settings import get_settings
 
@@ -36,10 +36,12 @@ def create_app() -> FastAPI:
 
     # Register routes
     app.include_router(health.router, prefix="/api")
+    app.include_router(auth.router, prefix="/api")
     app.include_router(calls.router, prefix="/api")
     app.include_router(summaries.router, prefix="/api")
     app.include_router(webhooks.router, prefix="/api")
     app.include_router(settings_routes.router, prefix="/api")
+    app.include_router(api_keys.router, prefix="/api")
 
     return app
 

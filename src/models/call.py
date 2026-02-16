@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Enum, Float, Integer, String
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +38,9 @@ class Call(Base):
     s3_bucket: Mapped[str] = mapped_column(String(200), nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     upload_source: Mapped[UploadSource] = mapped_column(
         Enum(UploadSource), nullable=False, default=UploadSource.MANUAL
@@ -57,6 +60,7 @@ class Call(Base):
     )
 
     # Relationships
+    user: Mapped["User | None"] = relationship(back_populates="calls")  # noqa: F821
     transcription: Mapped["Transcription"] = relationship(  # noqa: F821
         back_populates="call", uselist=False, lazy="selectin"
     )
