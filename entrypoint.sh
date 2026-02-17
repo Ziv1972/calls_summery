@@ -1,6 +1,18 @@
 #!/bin/sh
 set -e
 
+# If a command is passed (from docker-compose `command:`), run it directly
+if [ $# -gt 0 ]; then
+    # Run migrations only for the API service
+    if echo "$@" | grep -q "gunicorn\|uvicorn"; then
+        echo "Running database migrations..."
+        alembic upgrade head
+    fi
+    echo "Starting: $@"
+    exec "$@"
+fi
+
+# Default: entrypoint decides based on SERVICE_TYPE
 if [ "$SERVICE_TYPE" = "worker" ]; then
     echo "Starting Celery worker..."
     exec celery -A src.tasks.celery_app worker --loglevel=info --pool=solo
