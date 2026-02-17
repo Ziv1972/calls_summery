@@ -33,8 +33,15 @@ def send_notifications(self, call_id: str, summary_id: str):
                 logger.error("Call %s or summary %s not found", call_id, summary_id)
                 return
 
-            # Get user settings
-            user_settings = session.query(UserSettings).first()
+            # Get user settings by call's user_id
+            if call.user_id is not None:
+                user_settings = session.query(UserSettings).filter(
+                    UserSettings.user_id == call.user_id
+                ).first()
+            else:
+                # Fallback for legacy calls without user_id
+                user_settings = session.query(UserSettings).first()
+
             if user_settings is None or not user_settings.notify_on_complete:
                 logger.info("Notifications disabled, skipping for call %s", call_id)
                 return

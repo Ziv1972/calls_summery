@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_session
+from src.api.middleware.auth import get_current_user
+from src.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +28,13 @@ class S3EventPayload(BaseModel):
 @router.post("/s3-upload")
 async def s3_upload_event(
     payload: S3EventPayload,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Handle S3 upload event from local agent or S3 notifications.
+    """Handle S3 upload event from local agent or Android app.
 
-    When the local agent uploads a file to S3, it calls this webhook
-    to trigger the processing pipeline.
+    Requires authentication (JWT or API key).
+    The call is assigned to the authenticated user.
     """
     from src.models.call import CallStatus, UploadSource
     from src.repositories.call_repository import CallRepository
@@ -44,7 +47,7 @@ async def s3_upload_event(
         logger.info("S3 key %s already registered, skipping", payload.key)
         return {"status": "already_exists", "call_id": str(existing.id)}
 
-    # Create call record
+    # Create call record assigned to current user
     filename = payload.key.split("/")[-1]
     original = payload.original_filename or filename
     call = await call_repo.create({
@@ -56,6 +59,7 @@ async def s3_upload_event(
         "content_type": payload.content_type,
         "upload_source": UploadSource.AUTO_AGENT,
         "status": CallStatus.UPLOADED,
+        "user_id": current_user.id,
     })
     await session.commit()
 
@@ -63,7 +67,9 @@ async def s3_upload_event(
     from sqlalchemy import select
     from src.models.settings import UserSettings
 
-    result = await session.execute(select(UserSettings).limit(1))
+    result = await session.execute(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    )
     user_settings = result.scalar_one_or_none()
     language = user_settings.summary_language if user_settings else "he"
 
@@ -72,5 +78,5 @@ async def s3_upload_event(
 
     process_transcription.delay(str(call.id), language)
 
-    logger.info("Auto-upload registered: %s (call_id=%s)", payload.key, call.id)
+    logger.info("Auto-upload registered: %s (call_id=%s, user=%s)", payload.key, call.id, current_user.id)
     return {"status": "processing", "call_id": str(call.id)}

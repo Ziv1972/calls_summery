@@ -158,6 +158,7 @@ class TestSendNotifications:
         from src.tasks.notification_tasks import send_notifications
 
         call_mock = MagicMock()
+        call_mock.user_id = uuid.uuid4()
         summary_mock = MagicMock()
 
         user_settings_mock = MagicMock()
@@ -165,7 +166,7 @@ class TestSendNotifications:
 
         session_mock = MagicMock()
         session_mock.get.side_effect = [call_mock, summary_mock]
-        session_mock.query.return_value.first.return_value = user_settings_mock
+        session_mock.query.return_value.filter.return_value.first.return_value = user_settings_mock
 
         session_ctx = MagicMock()
         session_ctx.__enter__ = MagicMock(return_value=session_mock)
@@ -175,7 +176,6 @@ class TestSendNotifications:
             patch("sqlalchemy.create_engine"),
             patch("sqlalchemy.orm.Session", return_value=session_ctx),
         ):
-            task_mock = MagicMock()
             send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
             session_mock.commit.assert_not_called()
 
@@ -188,11 +188,12 @@ class TestSendNotifications:
         from src.tasks.notification_tasks import send_notifications
 
         call_mock = MagicMock()
+        call_mock.user_id = uuid.uuid4()
         summary_mock = MagicMock()
 
         session_mock = MagicMock()
         session_mock.get.side_effect = [call_mock, summary_mock]
-        session_mock.query.return_value.first.return_value = None
+        session_mock.query.return_value.filter.return_value.first.return_value = None
 
         session_ctx = MagicMock()
         session_ctx.__enter__ = MagicMock(return_value=session_mock)
@@ -202,7 +203,6 @@ class TestSendNotifications:
             patch("sqlalchemy.create_engine"),
             patch("sqlalchemy.orm.Session", return_value=session_ctx),
         ):
-            task_mock = MagicMock()
             send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
             session_mock.commit.assert_not_called()
 
@@ -218,6 +218,7 @@ class TestSendNotifications:
         call_mock = MagicMock()
         call_mock.original_filename = "test.mp3"
         call_mock.id = uuid.uuid4()
+        call_mock.user_id = uuid.uuid4()
 
         summary_mock = MagicMock()
         summary_mock.id = uuid.uuid4()
@@ -233,7 +234,7 @@ class TestSendNotifications:
 
         session_mock = MagicMock()
         session_mock.get.side_effect = [call_mock, summary_mock]
-        session_mock.query.return_value.first.return_value = user_settings_mock
+        session_mock.query.return_value.filter.return_value.first.return_value = user_settings_mock
 
         session_ctx = MagicMock()
         session_ctx.__enter__ = MagicMock(return_value=session_mock)
@@ -249,7 +250,6 @@ class TestSendNotifications:
             patch("sqlalchemy.orm.Session", return_value=session_ctx),
             patch("src.services.email_service.EmailService", return_value=mock_email_svc),
         ):
-            task_mock = MagicMock()
             send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
             mock_email_svc.send_summary.assert_called_once()
             session_mock.commit.assert_called_once()
