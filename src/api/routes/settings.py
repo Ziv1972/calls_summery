@@ -3,7 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from src.api.deps import get_session
 from src.api.middleware.auth import get_current_user
 from src.models.settings import NotificationMethod, UserSettings
 from src.models.user import User
+from src.utils.validators import validate_email, validate_language_code, validate_phone_number
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,36 @@ class SettingsUpdate(BaseModel):
     notify_on_complete: bool | None = None
     notification_method: str | None = None
     auto_upload_enabled: bool | None = None
+
+    @field_validator("whatsapp_recipient")
+    @classmethod
+    def validate_whatsapp(cls, v: str | None) -> str | None:
+        if v is not None and v != "" and not validate_phone_number(v):
+            raise ValueError("Invalid phone number format. Use international format: +972501234567")
+        return v
+
+    @field_validator("email_recipient")
+    @classmethod
+    def validate_email_field(cls, v: str | None) -> str | None:
+        if v is not None and v != "" and not validate_email(v):
+            raise ValueError("Invalid email address format")
+        return v
+
+    @field_validator("notification_method")
+    @classmethod
+    def validate_method(cls, v: str | None) -> str | None:
+        if v is not None:
+            valid = {m.value for m in NotificationMethod}
+            if v not in valid:
+                raise ValueError(f"Invalid notification method. Must be one of: {', '.join(valid)}")
+        return v
+
+    @field_validator("summary_language")
+    @classmethod
+    def validate_language(cls, v: str | None) -> str | None:
+        if v is not None and not validate_language_code(v):
+            raise ValueError("Invalid language code. Supported: auto, en, he, ar, fr, de, es, ru, zh, ja")
+        return v
 
 
 async def _get_or_create_settings(session: AsyncSession, user_id) -> UserSettings:

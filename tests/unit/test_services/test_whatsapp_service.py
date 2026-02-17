@@ -93,3 +93,65 @@ class TestWhatsAppService:
         msg = svc._format_message("call.mp3", long_text, [], [])
         assert len(msg) <= 1580
         assert msg.endswith("...")
+
+    @patch("src.services.whatsapp_service.get_settings")
+    def test_send_summary_success(self, mock_settings):
+        mock_settings.return_value = MagicMock(
+            twilio_account_sid="",
+            twilio_auth_token="",
+            twilio_whatsapp_number="+14155238886",
+        )
+
+        mock_message = MagicMock()
+        mock_message.sid = "SM_TEST_SID"
+
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_message
+
+        svc = WhatsAppService()
+        # Inject mock client directly (Twilio may not be installed)
+        svc._client = mock_client
+        svc._from_number = "+14155238886"
+
+        result = svc.send_summary(
+            to_number="+972501234567",
+            call_filename="meeting.mp3",
+            summary_text="Test summary",
+            key_points=["Point 1"],
+            action_items=["Action 1"],
+        )
+
+        assert result.success is True
+        assert result.message_sid == "SM_TEST_SID"
+        assert result.error is None
+
+        mock_client.messages.create.assert_called_once()
+        call_kwargs = mock_client.messages.create.call_args[1]
+        assert call_kwargs["from_"] == "whatsapp:+14155238886"
+        assert call_kwargs["to"] == "whatsapp:+972501234567"
+        assert "meeting.mp3" in call_kwargs["body"]
+
+    @patch("src.services.whatsapp_service.get_settings")
+    def test_send_summary_twilio_error(self, mock_settings):
+        mock_settings.return_value = MagicMock(
+            twilio_account_sid="",
+            twilio_auth_token="",
+            twilio_whatsapp_number="+14155238886",
+        )
+
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = Exception("Twilio API error: invalid number")
+
+        svc = WhatsAppService()
+        svc._client = mock_client
+        svc._from_number = "+14155238886"
+
+        result = svc.send_summary(
+            to_number="+000000000",
+            call_filename="test.mp3",
+            summary_text="Summary",
+        )
+
+        assert result.success is False
+        assert "Twilio API error" in result.error
+        assert result.message_sid is None

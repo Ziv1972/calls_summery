@@ -253,3 +253,145 @@ class TestSendNotifications:
             send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
             mock_email_svc.send_summary.assert_called_once()
             session_mock.commit.assert_called_once()
+
+    @patch("src.config.settings.get_settings")
+    def test_whatsapp_notification_sent(self, mock_get_settings):
+        mock_get_settings.return_value = MagicMock(
+            database_url="postgresql+asyncpg://localhost/test"
+        )
+
+        from src.models.settings import NotificationMethod
+        from src.tasks.notification_tasks import send_notifications
+
+        call_mock = MagicMock()
+        call_mock.original_filename = "meeting.mp3"
+        call_mock.id = uuid.uuid4()
+        call_mock.user_id = uuid.uuid4()
+
+        summary_mock = MagicMock()
+        summary_mock.id = uuid.uuid4()
+        summary_mock.summary_text = "Test summary"
+        summary_mock.key_points = ["point"]
+        summary_mock.action_items = []
+
+        user_settings_mock = MagicMock()
+        user_settings_mock.notify_on_complete = True
+        user_settings_mock.notification_method = NotificationMethod.WHATSAPP
+        user_settings_mock.email_recipient = None
+        user_settings_mock.whatsapp_recipient = "+972501234567"
+
+        session_mock = MagicMock()
+        session_mock.get.side_effect = [call_mock, summary_mock]
+        session_mock.query.return_value.filter.return_value.first.return_value = user_settings_mock
+
+        session_ctx = MagicMock()
+        session_ctx.__enter__ = MagicMock(return_value=session_mock)
+        session_ctx.__exit__ = MagicMock(return_value=False)
+
+        mock_wa_svc = MagicMock()
+        mock_wa_svc.send_summary.return_value = MagicMock(
+            success=True, message_sid="SM_TEST", error=None
+        )
+
+        with (
+            patch("sqlalchemy.create_engine"),
+            patch("sqlalchemy.orm.Session", return_value=session_ctx),
+            patch("src.services.whatsapp_service.WhatsAppService", return_value=mock_wa_svc),
+        ):
+            send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
+            mock_wa_svc.send_summary.assert_called_once()
+            session_mock.commit.assert_called_once()
+
+    @patch("src.config.settings.get_settings")
+    def test_both_notifications_sent(self, mock_get_settings):
+        mock_get_settings.return_value = MagicMock(
+            database_url="postgresql+asyncpg://localhost/test"
+        )
+
+        from src.models.settings import NotificationMethod
+        from src.tasks.notification_tasks import send_notifications
+
+        call_mock = MagicMock()
+        call_mock.original_filename = "meeting.mp3"
+        call_mock.id = uuid.uuid4()
+        call_mock.user_id = uuid.uuid4()
+
+        summary_mock = MagicMock()
+        summary_mock.id = uuid.uuid4()
+        summary_mock.summary_text = "Test summary"
+        summary_mock.key_points = ["point"]
+        summary_mock.action_items = []
+
+        user_settings_mock = MagicMock()
+        user_settings_mock.notify_on_complete = True
+        user_settings_mock.notification_method = NotificationMethod.BOTH
+        user_settings_mock.email_recipient = "test@example.com"
+        user_settings_mock.whatsapp_recipient = "+972501234567"
+
+        session_mock = MagicMock()
+        session_mock.get.side_effect = [call_mock, summary_mock]
+        session_mock.query.return_value.filter.return_value.first.return_value = user_settings_mock
+
+        session_ctx = MagicMock()
+        session_ctx.__enter__ = MagicMock(return_value=session_mock)
+        session_ctx.__exit__ = MagicMock(return_value=False)
+
+        mock_email_svc = MagicMock()
+        mock_email_svc.send_summary.return_value = MagicMock(
+            success=True, message_id="msg-456", error=None
+        )
+
+        mock_wa_svc = MagicMock()
+        mock_wa_svc.send_summary.return_value = MagicMock(
+            success=True, message_sid="SM_TEST", error=None
+        )
+
+        with (
+            patch("sqlalchemy.create_engine"),
+            patch("sqlalchemy.orm.Session", return_value=session_ctx),
+            patch("src.services.email_service.EmailService", return_value=mock_email_svc),
+            patch("src.services.whatsapp_service.WhatsAppService", return_value=mock_wa_svc),
+        ):
+            send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
+            mock_email_svc.send_summary.assert_called_once()
+            mock_wa_svc.send_summary.assert_called_once()
+            session_mock.commit.assert_called_once()
+
+    @patch("src.config.settings.get_settings")
+    def test_whatsapp_missing_recipient(self, mock_get_settings):
+        mock_get_settings.return_value = MagicMock(
+            database_url="postgresql+asyncpg://localhost/test"
+        )
+
+        from src.models.settings import NotificationMethod
+        from src.tasks.notification_tasks import send_notifications
+
+        call_mock = MagicMock()
+        call_mock.original_filename = "meeting.mp3"
+        call_mock.id = uuid.uuid4()
+        call_mock.user_id = uuid.uuid4()
+
+        summary_mock = MagicMock()
+        summary_mock.id = uuid.uuid4()
+
+        user_settings_mock = MagicMock()
+        user_settings_mock.notify_on_complete = True
+        user_settings_mock.notification_method = NotificationMethod.WHATSAPP
+        user_settings_mock.email_recipient = None
+        user_settings_mock.whatsapp_recipient = None  # No recipient set
+
+        session_mock = MagicMock()
+        session_mock.get.side_effect = [call_mock, summary_mock]
+        session_mock.query.return_value.filter.return_value.first.return_value = user_settings_mock
+
+        session_ctx = MagicMock()
+        session_ctx.__enter__ = MagicMock(return_value=session_mock)
+        session_ctx.__exit__ = MagicMock(return_value=False)
+
+        with (
+            patch("sqlalchemy.create_engine"),
+            patch("sqlalchemy.orm.Session", return_value=session_ctx),
+        ):
+            send_notifications(str(uuid.uuid4()), str(uuid.uuid4()))
+            # commit is called but no notification service is invoked
+            session_mock.add.assert_not_called()
