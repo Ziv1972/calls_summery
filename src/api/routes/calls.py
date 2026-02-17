@@ -1,19 +1,23 @@
-"""Call API endpoints - upload, list, get, status."""
+"""Call API endpoints - upload, list, get, status, reprocess, delete."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from sqlalchemy import delete as sql_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_session
 from src.api.middleware.auth import get_current_user
 from src.config.settings import get_settings
-from src.models.call import UploadSource
+from src.models.call import CallStatus, UploadSource
 from src.models.user import User
 from src.repositories.call_repository import CallRepository
 from src.schemas.call import CallResponse, CallStatusResponse, CallUploadRequest
 from src.schemas.common import ApiResponse, PaginatedResponse
 from src.services.call_service import CallService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/calls", tags=["calls"])
 
@@ -140,3 +144,101 @@ async def get_call_status(
             error_message=status.error_message,
         ),
     )
+
+
+async def _delete_call_children(session: AsyncSession, call_id: uuid.UUID) -> None:
+    """Delete child records in FK order: notifications -> summaries -> transcriptions."""
+    from src.models.notification import Notification
+    from src.models.summary import Summary
+    from src.models.transcription import Transcription
+
+    # Notifications reference summaries, not calls directly
+    await session.execute(
+        sql_delete(Notification).where(
+            Notification.summary_id.in_(
+                select(Summary.id).where(Summary.call_id == call_id)
+            )
+        )
+    )
+    await session.execute(
+        sql_delete(Summary).where(Summary.call_id == call_id)
+    )
+    await session.execute(
+        sql_delete(Transcription).where(Transcription.call_id == call_id)
+    )
+
+
+@router.post("/{call_id}/reprocess", response_model=ApiResponse[CallResponse])
+async def reprocess_call(
+    call_id: uuid.UUID,
+    language: str = "he",
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Reset a failed call and re-trigger the processing pipeline."""
+    call_repo = CallRepository(session)
+    call = await call_repo.find_by_id(call_id)
+
+    if call is None or call.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Call not found")
+
+    if call.status != CallStatus.FAILED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only failed calls can be reprocessed. Current status: {call.status.value}",
+        )
+
+    # Delete child records
+    await _delete_call_children(session, call_id)
+
+    # Reset call fields
+    await call_repo.update(call_id, {
+        "status": CallStatus.UPLOADED,
+        "error_message": None,
+        "language_detected": None,
+    })
+    await session.commit()
+
+    # Re-trigger Celery pipeline
+    from src.tasks.transcription_tasks import process_transcription
+
+    process_transcription.delay(str(call_id), language)
+
+    call = await call_repo.find_by_id(call_id)
+    logger.info("Call %s reprocessed by user %s", call_id, current_user.id)
+    return ApiResponse(success=True, data=CallResponse.model_validate(call))
+
+
+@router.delete("/{call_id}", response_model=ApiResponse)
+async def delete_call(
+    call_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Permanently delete a call, its children, and the S3 file."""
+    call_repo = CallRepository(session)
+    call = await call_repo.find_by_id(call_id)
+
+    if call is None or call.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Call not found")
+
+    s3_key = call.s3_key
+
+    # Delete child records in FK order
+    await _delete_call_children(session, call_id)
+
+    # Delete the call itself
+    await session.delete(call)
+    await session.commit()
+
+    # Best-effort S3 deletion
+    try:
+        from src.services.storage_service import StorageService
+
+        storage = StorageService()
+        storage.delete_file(s3_key)
+    except Exception:
+        logger.warning("S3 delete failed for key %s (call already deleted from DB)", s3_key)
+
+    logger.info("Call %s deleted by user %s", call_id, current_user.id)
+    return ApiResponse(success=True, data={"message": "Call deleted"})

@@ -72,6 +72,8 @@ class Settings(BaseSettings):
         "audio/x-m4a",
         "audio/ogg",
         "audio/webm",
+        "audio/flac",
+        "audio/x-flac",
     ]
 
     @field_validator("environment")

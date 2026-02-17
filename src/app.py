@@ -28,6 +28,18 @@ Use the sidebar to navigate between pages:
 - **Settings** - Configure language, notifications, auto-upload
 """)
 
+# Sidebar: logged-in user display
+if st.session_state.get("user"):
+    user = st.session_state["user"]
+    st.sidebar.markdown(f"**{user.get('full_name') or user.get('email', 'User')}**")
+    st.sidebar.caption(user.get("email", ""))
+    if st.sidebar.button("Log Out", key="sidebar_logout"):
+        st.session_state.pop("access_token", None)
+        st.session_state.pop("refresh_token", None)
+        st.session_state.pop("user", None)
+        st.rerun()
+    st.sidebar.markdown("---")
+
 # API health check
 API_BASE = "http://localhost:8001/api"
 

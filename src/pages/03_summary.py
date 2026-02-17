@@ -1,6 +1,5 @@
 """Summary page - view transcription and summary for a call."""
 
-import json
 import os
 import sys
 
@@ -8,11 +7,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
-import httpx
 
+from src.utils import api_client
 from src.utils.formatters import format_status_badge
 
-API_BASE = "http://localhost:8001/api"
+# Auth guard
+if not st.session_state.get("access_token"):
+    st.warning("Please log in to access this page.")
+    st.stop()
 
 
 def _build_download_text(
@@ -78,9 +80,8 @@ call_id_input = st.text_input("Call ID", value=call_id, help="Enter a call ID to
 
 if call_id_input:
     try:
-        response = httpx.get(
-            f"{API_BASE}/summaries/call/{call_id_input}",
-            timeout=10,
+        response = api_client.get(
+            f"/summaries/call/{call_id_input}",
         )
 
         if response.status_code == 200:
@@ -173,8 +174,6 @@ if call_id_input:
         else:
             st.error(f"Error: HTTP {response.status_code}")
 
-    except httpx.ConnectError:
-        st.warning("Cannot connect to API server.")
     except Exception as e:
         st.error(f"Error: {e}")
 else:

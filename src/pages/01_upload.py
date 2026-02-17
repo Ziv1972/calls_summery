@@ -1,25 +1,35 @@
 """Upload page - upload and process call recordings."""
 
+import os
+import sys
+
+# Ensure project root is on path for src imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 import streamlit as st
-import httpx
 
-API_BASE = "http://localhost:8001/api"
+from src.utils import api_client
 
-st.header("📤 Upload Call Recording")
+# Auth guard
+if not st.session_state.get("access_token"):
+    st.warning("Please log in to access this page.")
+    st.stop()
+
+st.header("Upload Call Recording")
 
 # Language selection
 language = st.selectbox(
     "Summary Language",
     options=["he", "en", "auto"],
-    format_func=lambda x: {"auto": "Auto-detect (less reliable)", "he": "Hebrew (עברית)", "en": "English"}[x],
+    format_func=lambda x: {"auto": "Auto-detect (less reliable)", "he": "Hebrew", "en": "English"}[x],
     index=0,
 )
 
 # File upload
 uploaded_file = st.file_uploader(
     "Choose an audio file",
-    type=["mp3", "mp4", "m4a", "wav", "ogg", "webm"],
-    help="Supported formats: MP3, MP4, M4A, WAV, OGG, WebM. Max 500MB.",
+    type=["mp3", "mp4", "m4a", "wav", "ogg", "webm", "flac"],
+    help="Supported formats: MP3, MP4, M4A, WAV, OGG, WebM, FLAC. Max 500MB.",
 )
 
 if uploaded_file is not None:
@@ -32,14 +42,14 @@ if uploaded_file is not None:
         size_mb = uploaded_file.size / (1024 * 1024)
         st.write(f"**Size:** {size_mb:.1f} MB")
 
-    if st.button("🚀 Upload & Process", type="primary"):
+    if st.button("Upload & Process", type="primary"):
         with st.spinner("Uploading to cloud..."):
             try:
                 files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                 params = {"language": language, "upload_source": "manual"}
 
-                response = httpx.post(
-                    f"{API_BASE}/calls/upload",
+                response = api_client.post(
+                    "/calls/upload",
                     files=files,
                     params=params,
                     timeout=120,
@@ -49,7 +59,7 @@ if uploaded_file is not None:
                     data = response.json()
                     if data.get("success"):
                         call_data = data["data"]
-                        st.success(f"Call uploaded successfully! Processing started.")
+                        st.success("Call uploaded successfully! Processing started.")
                         st.info(f"Call ID: `{call_data['id']}`")
                         st.info("Go to the **Calls** page to track progress.")
                     else:
@@ -57,7 +67,5 @@ if uploaded_file is not None:
                 else:
                     st.error(f"Upload failed: HTTP {response.status_code} - {response.text}")
 
-            except httpx.ConnectError:
-                st.error("Cannot connect to API server. Make sure FastAPI is running on port 8001.")
             except Exception as e:
                 st.error(f"Upload failed: {e}")

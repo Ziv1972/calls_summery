@@ -7,9 +7,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
-import httpx
 
-API_BASE = "http://localhost:8001/api"
+from src.utils import api_client
+
+# Auth guard
+if not st.session_state.get("access_token"):
+    st.warning("Please log in to access this page.")
+    st.stop()
 
 st.header("Notification History")
 
@@ -19,10 +23,9 @@ with col2:
     page = st.number_input("Page", min_value=1, value=1, step=1, key="notif_page")
 
 try:
-    response = httpx.get(
-        f"{API_BASE}/notifications/",
+    response = api_client.get(
+        "/notifications/",
         params={"page": page, "page_size": 20},
-        timeout=10,
     )
 
     if response.status_code == 200:
@@ -75,9 +78,8 @@ try:
                     if status == "failed":
                         if st.button("Retry", key=f"retry_{notif['id']}"):
                             try:
-                                retry_resp = httpx.post(
-                                    f"{API_BASE}/notifications/{notif['id']}/retry",
-                                    timeout=30,
+                                retry_resp = api_client.post(
+                                    f"/notifications/{notif['id']}/retry",
                                 )
                                 if retry_resp.status_code == 200:
                                     result = retry_resp.json()
@@ -91,13 +93,9 @@ try:
                             except Exception as e:
                                 st.error(f"Retry error: {e}")
 
-    elif response.status_code == 401:
-        st.warning("Authentication required. Please log in first.")
     else:
         st.error(f"Failed to load notifications: HTTP {response.status_code}")
 
-except httpx.ConnectError:
-    st.warning("Cannot connect to API server. Make sure FastAPI is running on port 8001.")
 except Exception as e:
     st.error(f"Error loading notifications: {e}")
 

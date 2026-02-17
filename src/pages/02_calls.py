@@ -8,11 +8,14 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
-import httpx
 
+from src.utils import api_client
 from src.utils.formatters import format_duration, format_file_size, format_status_badge
 
-API_BASE = "http://localhost:8001/api"
+# Auth guard
+if not st.session_state.get("access_token"):
+    st.warning("Please log in to access this page.")
+    st.stop()
 
 st.header("Call History")
 
@@ -24,10 +27,9 @@ with col2:
 has_active_calls = False
 
 try:
-    response = httpx.get(
-        f"{API_BASE}/calls/",
+    response = api_client.get(
+        "/calls/",
         params={"page": page, "page_size": 20},
-        timeout=10,
     )
 
     if response.status_code == 200:
@@ -70,11 +72,55 @@ try:
                             st.session_state["selected_call_id"] = call["id"]
                             st.switch_page("pages/03_summary.py")
 
+                    # Retry button for failed calls
+                    if status == "failed":
+                        retry_col1, retry_col2 = st.columns(2)
+                        with retry_col1:
+                            retry_lang = st.selectbox(
+                                "Retry language",
+                                options=["he", "en", "auto"],
+                                format_func=lambda x: {"he": "Hebrew", "en": "English", "auto": "Auto"}[x],
+                                key=f"retry_lang_{call['id']}",
+                            )
+                        with retry_col2:
+                            if st.button("Retry Processing", key=f"retry_{call['id']}", type="primary"):
+                                retry_resp = api_client.post(
+                                    f"/calls/{call['id']}/reprocess",
+                                    params={"language": retry_lang},
+                                )
+                                if retry_resp.status_code == 200:
+                                    st.success("Reprocessing started.")
+                                    st.rerun()
+                                else:
+                                    error_data = retry_resp.json()
+                                    st.error(f"Retry failed: {error_data.get('detail', retry_resp.status_code)}")
+
+                    # Delete button with confirmation
+                    confirm_key = f"confirm_delete_{call['id']}"
+                    if st.session_state.get(confirm_key):
+                        st.warning(f"Are you sure? This will permanently delete '{call['original_filename']}'.")
+                        del_col1, del_col2 = st.columns(2)
+                        with del_col1:
+                            if st.button("Yes, delete", key=f"yes_del_{call['id']}", type="primary"):
+                                del_resp = api_client.delete(f"/calls/{call['id']}")
+                                if del_resp.status_code == 200:
+                                    st.success("Call deleted.")
+                                    st.session_state.pop(confirm_key, None)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Delete failed: HTTP {del_resp.status_code}")
+                        with del_col2:
+                            if st.button("Cancel", key=f"no_del_{call['id']}"):
+                                st.session_state.pop(confirm_key, None)
+                                st.rerun()
+                    else:
+                        if st.button("Delete", key=f"del_{call['id']}"):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+
     else:
         st.error(f"Failed to load calls: HTTP {response.status_code}")
 
-except httpx.ConnectError:
-    st.warning("Cannot connect to API server. Make sure FastAPI is running on port 8001.")
 except Exception as e:
     st.error(f"Error loading calls: {e}")
 

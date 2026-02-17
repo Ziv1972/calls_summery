@@ -1,11 +1,21 @@
 """Settings page - configure language, notifications, auto-upload."""
 
+import os
+import sys
+
+# Ensure project root is on path for src imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 import streamlit as st
-import httpx
 
-API_BASE = "http://localhost:8001/api"
+from src.utils import api_client
 
-LANGUAGE_OPTIONS = {"auto": "Auto-detect", "he": "Hebrew (עברית)", "en": "English"}
+# Auth guard
+if not st.session_state.get("access_token"):
+    st.warning("Please log in to access this page.")
+    st.stop()
+
+LANGUAGE_OPTIONS = {"auto": "Auto-detect", "he": "Hebrew", "en": "English"}
 METHOD_OPTIONS = {
     "email": "Email only",
     "whatsapp": "WhatsApp only",
@@ -17,13 +27,11 @@ METHOD_OPTIONS = {
 def _load_settings() -> dict:
     """Load settings from API."""
     try:
-        response = httpx.get(f"{API_BASE}/settings", timeout=10)
+        response = api_client.get("/settings")
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
                 return data["data"]
-    except httpx.ConnectError:
-        st.warning("Cannot connect to API server.")
     except Exception as e:
         st.error(f"Error loading settings: {e}")
     return {}
@@ -32,12 +40,10 @@ def _load_settings() -> dict:
 def _save_settings(update: dict) -> bool:
     """Save settings via API."""
     try:
-        response = httpx.put(f"{API_BASE}/settings", json=update, timeout=10)
+        response = api_client.put("/settings", json=update)
         if response.status_code == 200:
             return True
         st.error(f"Failed to save: HTTP {response.status_code}")
-    except httpx.ConnectError:
-        st.error("Cannot connect to API server.")
     except Exception as e:
         st.error(f"Error saving settings: {e}")
     return False
