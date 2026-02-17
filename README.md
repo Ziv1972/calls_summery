@@ -318,8 +318,8 @@ conda run -n calls_summery python -m pytest tests/unit tests/integration --cov=s
 - [x] Input validation (phone, email, language)
 - [x] Docker production deployment
 - [x] CI/CD pipeline (GitHub Actions)
-- [ ] Email verification flow
-- [ ] User plan gating (FREE/PRO/BUSINESS)
+- [x] Email verification flow
+- [x] User plan gating (FREE/PRO/BUSINESS)
 
 ## License
 
