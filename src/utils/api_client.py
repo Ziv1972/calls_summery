@@ -4,10 +4,12 @@ Wraps httpx with automatic Authorization header injection from
 st.session_state and 401 handling.
 """
 
+import os
+
 import httpx
 import streamlit as st
 
-API_BASE = "http://localhost:8001/api"
+API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8001/api")
 
 
 def _get_headers() -> dict[str, str]:

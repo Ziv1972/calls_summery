@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     email_verification_expire_hours: int = 24
     frontend_url: str = "http://localhost:8501"
 
+    # CORS
+    allowed_origins: str = "*"
+
     # File Upload
     max_upload_size_mb: int = 500
     allowed_audio_formats: list[str] = [
