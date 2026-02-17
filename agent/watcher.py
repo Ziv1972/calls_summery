@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.config import (
     API_ENDPOINT,
+    API_KEY,
     AUDIO_EXTENSIONS,
     AUTO_UPLOAD_ENABLED,
     SETTLE_TIME_SECONDS,
@@ -81,6 +82,10 @@ class CallRecordingHandler(FileSystemEventHandler):
 
         # Notify API to start processing
         try:
+            headers = {}
+            if API_KEY:
+                headers["Authorization"] = f"Bearer {API_KEY}"
+
             response = httpx.post(
                 API_ENDPOINT,
                 json={
@@ -90,6 +95,7 @@ class CallRecordingHandler(FileSystemEventHandler):
                     "content_type": result["content_type"],
                     "original_filename": result["original_filename"],
                 },
+                headers=headers,
                 timeout=30,
             )
 

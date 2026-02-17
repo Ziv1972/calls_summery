@@ -23,6 +23,9 @@ AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 AWS_REGION = os.environ.get("AWS_REGION", "eu-north-1")
 
+# API authentication (API key for webhook calls)
+API_KEY = os.environ.get("API_KEY", "")
+
 # Agent behavior
 AUTO_UPLOAD_ENABLED = os.environ.get("AUTO_UPLOAD", "true").lower() == "true"
 WATCH_INTERVAL_SECONDS = int(os.environ.get("WATCH_INTERVAL", "5"))
