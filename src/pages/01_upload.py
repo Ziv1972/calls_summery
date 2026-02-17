@@ -17,6 +17,29 @@ if not st.session_state.get("access_token"):
 
 st.header("Upload Call Recording")
 
+# Plan usage info
+try:
+    usage_resp = api_client.get("/auth/usage")
+    if usage_resp.status_code == 200:
+        usage = usage_resp.json().get("data", {})
+        plan = usage.get("plan", "free").upper()
+        calls_this_month = usage.get("calls_this_month", 0)
+        calls_limit = usage.get("calls_limit")
+        max_mb = usage.get("max_file_size_mb", 500)
+
+        if calls_limit is not None and calls_this_month >= calls_limit:
+            st.error(
+                f"You have reached your {plan} plan limit of {calls_limit} calls/month. "
+                "Upgrade your plan to continue uploading."
+            )
+            st.stop()
+        elif calls_limit is not None:
+            st.info(f"Plan: {plan} | Calls: {calls_this_month}/{calls_limit} this month | Max file: {max_mb}MB")
+        else:
+            st.info(f"Plan: {plan} (unlimited) | Max file: {max_mb}MB")
+except Exception:
+    pass
+
 # Language selection
 language = st.selectbox(
     "Summary Language",

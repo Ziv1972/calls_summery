@@ -41,7 +41,7 @@ async def upload_call(
             f"Allowed: {settings.allowed_audio_formats}",
         )
 
-    # Validate file size
+    # Validate file size (hard ceiling)
     max_size = settings.max_upload_size_mb * 1024 * 1024
     content = await file.read()
     if len(content) > max_size:
@@ -50,6 +50,26 @@ async def upload_call(
             detail=f"File too large. Max size: {settings.max_upload_size_mb}MB",
         )
     await file.seek(0)
+
+    # Enforce plan limits
+    from src.config.plan_limits import get_plan_limits
+
+    limits = get_plan_limits(current_user.plan)
+    plan_max_bytes = limits.max_file_size_mb * 1024 * 1024
+    if len(content) > plan_max_bytes:
+        raise HTTPException(
+            status_code=403,
+            detail=f"File exceeds {limits.max_file_size_mb}MB limit for your {current_user.plan.value} plan",
+        )
+
+    if limits.calls_per_month is not None:
+        call_repo_check = CallRepository(session)
+        count = await call_repo_check.count_calls_this_month(current_user.id)
+        if count >= limits.calls_per_month:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Monthly limit of {limits.calls_per_month} calls reached for {current_user.plan.value} plan",
+            )
 
     # Upload and create record
     call_service = CallService(session)

@@ -51,6 +51,32 @@ def _save_settings(update: dict) -> bool:
 
 st.header("Settings")
 
+# Plan & Usage section
+st.subheader("Plan & Usage")
+try:
+    usage_resp = api_client.get("/auth/usage")
+    if usage_resp.status_code == 200:
+        usage = usage_resp.json().get("data", {})
+        plan = usage.get("plan", "free").upper()
+        calls_this_month = usage.get("calls_this_month", 0)
+        calls_limit = usage.get("calls_limit")
+        max_mb = usage.get("max_file_size_mb", 500)
+
+        col_plan, col_usage = st.columns(2)
+        with col_plan:
+            st.metric("Current Plan", plan)
+            st.caption(f"Max file size: {max_mb}MB")
+        with col_usage:
+            if calls_limit is None:
+                st.metric("Calls This Month", f"{calls_this_month} (unlimited)")
+            else:
+                st.metric("Calls This Month", f"{calls_this_month} / {calls_limit}")
+                st.progress(min(calls_this_month / calls_limit, 1.0) if calls_limit > 0 else 0.0)
+except Exception:
+    pass  # Non-critical, don't block settings page
+
+st.markdown("---")
+
 # Load current settings from DB
 current = _load_settings()
 

@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(default="change-this-to-a-random-string-at-least-32-chars")
     access_token_expire_minutes: int = 60
+    email_verification_expire_hours: int = 24
+    frontend_url: str = "http://localhost:8501"
 
     # File Upload
     max_upload_size_mb: int = 500

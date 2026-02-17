@@ -1,6 +1,7 @@
-"""Auth routes - register, login, refresh, me."""
+"""Auth routes - register, login, refresh, me, email verification, plan management."""
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -14,11 +15,14 @@ from src.schemas.auth import (
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    UpgradePlanRequest,
     UserResponse,
+    VerifyEmailRequest,
 )
-from src.schemas.common import ApiResponse
+from src.schemas.common import ApiResponse, StatusResponse
 from src.services.auth_service import (
     authenticate_user,
+    create_email_verification_token,
     create_token_pair,
     decode_token,
     hash_password,
@@ -53,6 +57,17 @@ async def register(
     await session.refresh(user)
 
     logger.info("User registered: %s", user.email)
+
+    # Send verification email (best-effort)
+    try:
+        from src.services.email_service import EmailService
+
+        verify_token = create_email_verification_token(user.id)
+        email_svc = EmailService()
+        email_svc.send_verification_email(user.email, verify_token)
+    except Exception:
+        logger.warning("Could not send verification email to %s", user.email)
+
     return ApiResponse(success=True, data=UserResponse.model_validate(user))
 
 
@@ -87,8 +102,6 @@ async def refresh_token(
     session: AsyncSession = Depends(get_session),
 ):
     """Refresh access token using refresh token."""
-    import uuid
-
     import jwt
 
     try:
@@ -132,3 +145,95 @@ async def refresh_token(
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user profile."""
     return ApiResponse(success=True, data=UserResponse.model_validate(current_user))
+
+
+@router.post("/verify-email", response_model=ApiResponse[UserResponse])
+async def verify_email(
+    body: VerifyEmailRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Verify user email address using a verification token."""
+    import jwt
+
+    try:
+        payload = decode_token(body.token)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="Verification link has expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+
+    if payload.type != "email_verify":
+        raise HTTPException(status_code=400, detail="Invalid token type")
+
+    user = await session.get(User, uuid.UUID(payload.sub))
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_verified:
+        return ApiResponse(success=True, data=UserResponse.model_validate(user))
+
+    user.is_verified = True
+    await session.commit()
+    await session.refresh(user)
+
+    logger.info("User email verified: %s", user.email)
+    return ApiResponse(success=True, data=UserResponse.model_validate(user))
+
+
+@router.post("/resend-verification", response_model=ApiResponse[StatusResponse])
+async def resend_verification(
+    current_user: User = Depends(get_current_user),
+):
+    """Resend email verification link."""
+    if current_user.is_verified:
+        raise HTTPException(status_code=400, detail="Email already verified")
+
+    from src.services.email_service import EmailService
+
+    token = create_email_verification_token(current_user.id)
+    email_svc = EmailService()
+    result = email_svc.send_verification_email(current_user.email, token)
+
+    if not result.success:
+        logger.error("Resend verification failed for %s: %s", current_user.email, result.error)
+        raise HTTPException(status_code=500, detail="Failed to send verification email")
+
+    return ApiResponse(success=True, data=StatusResponse(status="sent"))
+
+
+@router.post("/upgrade-plan", response_model=ApiResponse[UserResponse])
+async def upgrade_plan(
+    body: UpgradePlanRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Change the current user's plan (no payment, admin-style for now)."""
+    current_user.plan = body.plan
+    await session.commit()
+    await session.refresh(current_user)
+    logger.info("User %s plan changed to %s", current_user.email, body.plan.value)
+    return ApiResponse(success=True, data=UserResponse.model_validate(current_user))
+
+
+@router.get("/usage", response_model=ApiResponse[dict])
+async def get_usage(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get current user's plan usage summary."""
+    from src.config.plan_limits import get_plan_limits
+    from src.repositories.call_repository import CallRepository
+
+    limits = get_plan_limits(current_user.plan)
+    repo = CallRepository(session)
+    calls_this_month = await repo.count_calls_this_month(current_user.id)
+
+    return ApiResponse(
+        success=True,
+        data={
+            "plan": current_user.plan.value,
+            "calls_this_month": calls_this_month,
+            "calls_limit": limits.calls_per_month,
+            "max_file_size_mb": limits.max_file_size_mb,
+        },
+    )

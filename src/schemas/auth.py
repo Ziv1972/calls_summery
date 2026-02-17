@@ -51,6 +51,18 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VerifyEmailRequest(BaseModel):
+    """Email verification token request."""
+
+    token: str
+
+
+class UpgradePlanRequest(BaseModel):
+    """Change user plan request."""
+
+    plan: UserPlan
+
+
 class ApiKeyCreateRequest(BaseModel):
     """Create API key request."""
 

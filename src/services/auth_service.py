@@ -62,6 +62,16 @@ def create_refresh_token(user_id: uuid.UUID) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 
+def create_email_verification_token(user_id: uuid.UUID) -> str:
+    """Create a JWT email verification token (24h expiry)."""
+    settings = get_settings()
+    expire = datetime.now(timezone.utc) + timedelta(
+        hours=settings.email_verification_expire_hours
+    )
+    payload = {"sub": str(user_id), "exp": expire, "type": "email_verify"}
+    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+
+
 def create_token_pair(user_id: uuid.UUID) -> TokenPair:
     """Create access + refresh token pair."""
     return TokenPair(

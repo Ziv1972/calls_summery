@@ -1,4 +1,4 @@
-"""Authentication page - login and registration."""
+"""Authentication page - login, registration, and email verification."""
 
 import os
 import sys
@@ -13,10 +13,50 @@ from src.utils.api_client import API_BASE
 
 st.header("Sign In")
 
+# Handle email verification via query param
+verify_token = st.query_params.get("verify_token")
+if verify_token:
+    try:
+        resp = httpx.post(
+            f"{API_BASE}/auth/verify-email",
+            json={"token": verify_token},
+            timeout=10,
+        )
+        if resp.status_code == 200 and resp.json().get("success"):
+            st.success("Email verified successfully! You can now log in.")
+        else:
+            detail = resp.json().get("detail", "Verification failed.")
+            st.error(f"Verification failed: {detail}")
+    except Exception as e:
+        st.error(f"Verification error: {e}")
+    # Clear the query param to avoid re-verifying on refresh
+    st.query_params.clear()
+
 # If already logged in, show status and option to logout
 if st.session_state.get("access_token"):
     user = st.session_state.get("user", {})
     st.success(f"Logged in as **{user.get('email', 'Unknown')}**")
+
+    # Verification banner for unverified users
+    if not user.get("is_verified", True):
+        st.warning(
+            "Your email address is not verified. "
+            "Please check your inbox or resend the verification email."
+        )
+        if st.button("Resend Verification Email"):
+            try:
+                resp = httpx.post(
+                    f"{API_BASE}/auth/resend-verification",
+                    headers={"Authorization": f"Bearer {st.session_state['access_token']}"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    st.success("Verification email sent! Check your inbox.")
+                else:
+                    st.error("Failed to resend. Please try again later.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
     if st.button("Log Out"):
         st.session_state.pop("access_token", None)
         st.session_state.pop("refresh_token", None)
@@ -95,7 +135,10 @@ with tab_register:
                 if response.status_code == 201:
                     data = response.json()
                     if data.get("success"):
-                        st.success("Account created! Please log in using the Login tab.")
+                        st.success(
+                            "Account created! A verification email has been sent. "
+                            "Please check your inbox, then log in."
+                        )
                     else:
                         st.error(data.get("error", "Registration failed."))
                 elif response.status_code == 409:

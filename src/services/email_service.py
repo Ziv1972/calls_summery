@@ -28,6 +28,29 @@ class EmailService:
         self._client = SendGridAPIClient(api_key=settings.sendgrid_api_key)
         self._from_email = settings.sendgrid_from_email
 
+    def send_verification_email(self, to_email: str, token: str) -> EmailResult:
+        """Send email verification link."""
+        settings = get_settings()
+        verify_url = f"{settings.frontend_url}/?verify_token={token}"
+        subject = "Verify your Calls Summary account"
+        html_body = self._build_verification_html(verify_url=verify_url)
+
+        message = Mail(
+            from_email=Email(self._from_email),
+            to_emails=To(to_email),
+            subject=subject,
+            html_content=Content("text/html", html_body),
+        )
+
+        try:
+            response = self._client.send(message)
+            message_id = response.headers.get("X-Message-Id", "")
+            logger.info("Verification email sent to %s", to_email)
+            return EmailResult(success=True, message_id=message_id)
+        except Exception as e:
+            logger.error("Failed to send verification email to %s: %s", to_email, e)
+            return EmailResult(success=False, error=str(e))
+
     def send_summary(
         self,
         to_email: str,
@@ -61,6 +84,27 @@ class EmailService:
         except Exception as e:
             logger.error("Failed to send email to %s: %s", to_email, e)
             return EmailResult(success=False, error=str(e))
+
+    def _build_verification_html(self, verify_url: str) -> str:
+        """Build HTML body for verification email."""
+        return f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Verify your email address</h2>
+            <p>Click the button below to verify your Calls Summary account:</p>
+            <p>
+                <a href="{verify_url}"
+                   style="background: #4F46E5; color: white; padding: 12px 24px;
+                          border-radius: 6px; text-decoration: none; display: inline-block;">
+                    Verify Email
+                </a>
+            </p>
+            <p style="color: #888; font-size: 12px;">
+                This link expires in 24 hours. If you didn't create this account, ignore this email.
+            </p>
+        </body>
+        </html>
+        """
 
     def _build_html(
         self,

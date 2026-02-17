@@ -1,9 +1,10 @@
 """Call repository - data access for call records."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.call import Call, CallStatus
@@ -52,6 +53,21 @@ class CallRepository(BaseRepository[Call]):
         query = select(Call).where(Call.s3_key == s3_key)
         result = await self._session.execute(query)
         return result.scalars().first()
+
+    async def count_calls_this_month(self, user_id: uuid.UUID) -> int:
+        """Count calls created by user in the current calendar month."""
+        now = datetime.now(timezone.utc)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        query = (
+            select(func.count())
+            .select_from(Call)
+            .where(
+                Call.user_id == user_id,
+                Call.created_at >= month_start,
+            )
+        )
+        result = await self._session.execute(query)
+        return result.scalar() or 0
 
     async def update_status(
         self, call_id: uuid.UUID, status: CallStatus, error_message: str | None = None

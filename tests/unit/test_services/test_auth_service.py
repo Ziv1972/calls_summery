@@ -247,3 +247,22 @@ class TestAuthSchemas:
 
         with pytest.raises(Exception):
             ApiKeyCreateRequest(name="")
+
+    def test_verify_email_request(self):
+        from src.schemas.auth import VerifyEmailRequest
+
+        req = VerifyEmailRequest(token="some-jwt-token")
+        assert req.token == "some-jwt-token"
+
+    def test_upgrade_plan_request_valid(self):
+        from src.schemas.auth import UpgradePlanRequest
+        from src.models.user import UserPlan
+
+        req = UpgradePlanRequest(plan="pro")
+        assert req.plan == UserPlan.PRO
+
+    def test_upgrade_plan_request_invalid(self):
+        from src.schemas.auth import UpgradePlanRequest
+
+        with pytest.raises(Exception):
+            UpgradePlanRequest(plan="invalid")
