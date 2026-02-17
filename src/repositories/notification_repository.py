@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.notification import Notification
@@ -25,15 +25,16 @@ class NotificationRepository(BaseRepository[Notification]):
         from src.models.call import Call
         from src.models.summary import Summary
 
-        # Count total
+        # Count total using COUNT(*) instead of loading all rows
         count_query = (
-            select(Notification)
+            select(func.count())
+            .select_from(Notification)
             .join(Summary, Notification.summary_id == Summary.id)
             .join(Call, Summary.call_id == Call.id)
             .where(Call.user_id == user_id)
         )
         count_result = await self._session.execute(count_query)
-        total = len(count_result.scalars().all())
+        total = count_result.scalar() or 0
 
         # Fetch page
         offset = (page - 1) * page_size

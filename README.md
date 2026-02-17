@@ -158,7 +158,7 @@ erDiagram
 | Transcription | Deepgram Nova-3 | Speaker diarization, 100+ languages |
 | Summarization | Claude Haiku 4.5 | Key points, action items, sentiment |
 | Email | SendGrid | Free tier (100/day) |
-| WhatsApp | Twilio | Phase 2 |
+| WhatsApp | Twilio | Delivery status tracking |
 | Local Agent | Python watchdog | Auto-upload from device |
 
 ## Quick Start
@@ -227,6 +227,10 @@ conda run -n calls_summery python -m agent.watcher
 - **Speaker View** -- Conversation displayed per-speaker
 - **Download** -- Export summary as `.txt` file
 - **Status Tracking** -- Real-time pipeline progress in UI
+- **Authentication** -- JWT + API key auth, multi-user support
+- **Notifications** -- Email (SendGrid) + WhatsApp (Twilio) with delivery tracking
+- **Call Management** -- Reprocess failed calls, delete with S3 cleanup
+- **API Key Management** -- Create/revoke keys for local agent setup
 
 ## Project Structure
 
@@ -234,10 +238,10 @@ conda run -n calls_summery python -m agent.watcher
 calls_summery/
 ├── src/
 │   ├── app.py                    # Streamlit entry point
-│   ├── pages/                    # UI pages (upload, calls, summary, settings)
+│   ├── pages/                    # UI pages (auth, upload, calls, summary, settings, notifications, api keys)
 │   ├── api/
 │   │   ├── main.py               # FastAPI app
-│   │   └── routes/               # calls, summaries, webhooks, health
+│   │   └── routes/               # auth, calls, summaries, settings, notifications, webhooks, api-keys, health
 │   ├── models/                   # SQLAlchemy models
 │   ├── schemas/                  # Pydantic schemas
 │   ├── repositories/             # Data access layer
@@ -270,6 +274,10 @@ calls_summery/
 | `DEEPGRAM_API_KEY` | Deepgram transcription API | Yes |
 | `ANTHROPIC_API_KEY` | Claude summarization API | Yes |
 | `SENDGRID_API_KEY` | SendGrid email API | For notifications |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID | For WhatsApp |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token | For WhatsApp |
+| `TWILIO_WHATSAPP_NUMBER` | Twilio WhatsApp sender | For WhatsApp |
+| `SECRET_KEY` | JWT signing key (min 32 chars) | Yes |
 | `WATCH_FOLDER` | Local folder to watch for recordings | For agent |
 
 ## Tests
@@ -278,8 +286,11 @@ calls_summery/
 # Unit tests
 conda run -n calls_summery python -m pytest tests/unit -v
 
-# With coverage
-conda run -n calls_summery python -m pytest tests/unit --cov=src --cov-report=term
+# Integration tests
+conda run -n calls_summery python -m pytest tests/integration -v
+
+# All tests with coverage
+conda run -n calls_summery python -m pytest tests/unit tests/integration --cov=src --cov-report=term
 ```
 
 ## Estimated API Cost
@@ -297,12 +308,18 @@ conda run -n calls_summery python -m pytest tests/unit --cov=src --cov-report=te
 - [x] Speaker conversation view
 - [x] Download summary as text
 - [x] Local watchdog agent for auto-upload
-- [ ] Email notifications (SendGrid)
-- [ ] WhatsApp notifications (Twilio)
-- [ ] Settings page for notification preferences
-- [ ] JWT authentication (multi-user)
-- [ ] Docker production deployment
-- [ ] CI/CD pipeline
+- [x] Email notifications (SendGrid)
+- [x] WhatsApp notifications (Twilio) with delivery tracking
+- [x] Settings page for notification preferences
+- [x] JWT authentication + API keys (multi-user)
+- [x] Login/register UI with auth guards
+- [x] API key management UI
+- [x] Reprocess failed calls + delete calls
+- [x] Input validation (phone, email, language)
+- [x] Docker production deployment
+- [x] CI/CD pipeline (GitHub Actions)
+- [ ] Email verification flow
+- [ ] User plan gating (FREE/PRO/BUSINESS)
 
 ## License
 
