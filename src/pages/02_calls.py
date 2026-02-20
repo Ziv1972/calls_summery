@@ -1,4 +1,4 @@
-"""Calls page - view all calls with status."""
+"""Calls page - view all calls with status, search, and filter."""
 
 import os
 import sys
@@ -19,6 +19,17 @@ if not st.session_state.get("access_token"):
 
 st.header("Call History")
 
+# Search and filters
+search_col, filter_col = st.columns([2, 1])
+with search_col:
+    search_query = st.text_input("Search calls", placeholder="Search summaries, transcriptions, filenames...")
+with filter_col:
+    sentiment_filter = st.selectbox(
+        "Sentiment",
+        options=[None, "positive", "neutral", "negative", "mixed"],
+        format_func=lambda x: "All" if x is None else x.capitalize(),
+    )
+
 # Pagination
 col1, col2 = st.columns([3, 1])
 with col2:
@@ -27,10 +38,14 @@ with col2:
 has_active_calls = False
 
 try:
-    response = api_client.get(
-        "/calls/",
-        params={"page": page, "page_size": 20},
-    )
+    # Build query params
+    params = {"page": page, "page_size": 20}
+    if search_query:
+        params["q"] = search_query
+    if sentiment_filter:
+        params["sentiment"] = sentiment_filter
+
+    response = api_client.get("/calls/", params=params)
 
     if response.status_code == 200:
         data = response.json()
@@ -40,7 +55,10 @@ try:
         st.caption(f"Total calls: {total}")
 
         if not calls:
-            st.info("No calls yet. Go to **Upload** to add your first call.")
+            if search_query:
+                st.info(f"No calls found matching '{search_query}'.")
+            else:
+                st.info("No calls yet. Go to **Upload** to add your first call.")
         else:
             for call in calls:
                 status = call["status"]
@@ -63,6 +81,9 @@ try:
                         st.write(f"**Size:** {format_file_size(call['file_size_bytes'])}")
                     with col_c:
                         st.write(f"**Language:** {call.get('language_detected') or 'Detecting...'}")
+                        caller_phone = call.get("caller_phone")
+                        if caller_phone:
+                            st.write(f"**Caller:** {caller_phone}")
                         if call.get("error_message"):
                             st.error(call["error_message"])
 

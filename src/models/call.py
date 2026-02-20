@@ -24,6 +24,8 @@ class UploadSource(str, enum.Enum):
     MANUAL = "manual"
     AUTO_AGENT = "auto_agent"
     CLOUD_SYNC = "cloud_sync"
+    MOBILE_AUTO = "mobile_auto"
+    MOBILE_MANUAL = "mobile_manual"
 
 
 class Call(Base):
@@ -41,6 +43,10 @@ class Call(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    caller_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     upload_source: Mapped[UploadSource] = mapped_column(
         Enum(UploadSource), nullable=False, default=UploadSource.MANUAL
@@ -61,6 +67,7 @@ class Call(Base):
 
     # Relationships
     user: Mapped["User | None"] = relationship(back_populates="calls")  # noqa: F821
+    contact: Mapped["Contact | None"] = relationship(back_populates="calls")  # noqa: F821
     transcription: Mapped["Transcription"] = relationship(  # noqa: F821
         back_populates="call", uselist=False, lazy="selectin"
     )

@@ -36,6 +36,9 @@ class Summary(Base):
     key_points: Mapped[list | None] = mapped_column(JSON, nullable=True)
     action_items: Mapped[list | None] = mapped_column(JSON, nullable=True)
     sentiment: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    structured_actions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    participants_details: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    topics: Mapped[list | None] = mapped_column(JSON, nullable=True)
     language: Mapped[str | None] = mapped_column(String(10), nullable=True)
     tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[SummaryStatus] = mapped_column(

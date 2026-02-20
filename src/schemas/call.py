@@ -18,6 +18,8 @@ class CallResponse(BaseModel):
     duration_seconds: float | None = None
     content_type: str
     upload_source: UploadSource
+    contact_id: uuid.UUID | None = None
+    caller_phone: str | None = None
     status: CallStatus
     language_detected: str | None = None
     error_message: str | None = None

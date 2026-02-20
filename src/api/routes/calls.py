@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import datetime as dt
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import delete as sql_delete, select
@@ -102,12 +103,59 @@ async def upload_call(
 async def list_calls(
     page: int = 1,
     page_size: int = 20,
+    contact_id: uuid.UUID | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    sentiment: str | None = None,
+    status: str | None = None,
+    q: str | None = None,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """List all calls for the current user with pagination."""
+    """List calls with optional filters. Use `q` for full-text search."""
     call_repo = CallRepository(session)
-    result = await call_repo.find_by_user(current_user.id, page=page, page_size=page_size)
+
+    # Full-text search mode
+    if q:
+        result = await call_repo.search(current_user.id, q, page=page, page_size=page_size)
+        return PaginatedResponse(
+            items=[CallResponse.model_validate(c) for c in result.items],
+            total=result.total,
+            page=result.page,
+            page_size=result.page_size,
+            total_pages=result.total_pages,
+        )
+
+    # Parse date filters
+    parsed_from = None
+    parsed_to = None
+    if date_from:
+        try:
+            parsed_from = dt.fromisoformat(date_from)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date_from: '{date_from}'. Use ISO 8601 (e.g. '2026-02-20')",
+            )
+    if date_to:
+        try:
+            parsed_to = dt.fromisoformat(date_to)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date_to: '{date_to}'. Use ISO 8601 (e.g. '2026-02-20')",
+            )
+
+    result = await call_repo.find_by_user(
+        current_user.id,
+        page=page,
+        page_size=page_size,
+        contact_id=contact_id,
+        date_from=parsed_from,
+        date_to=parsed_to,
+        sentiment=sentiment,
+        status=status,
+    )
 
     return PaginatedResponse(
         items=[CallResponse.model_validate(c) for c in result.items],

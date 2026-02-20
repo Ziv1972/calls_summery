@@ -53,7 +53,7 @@ def process_summarization(
                 speakers=transcription.speakers if transcription.speakers else None,
             )
 
-            # Save summary
+            # Save summary with structured data
             from datetime import datetime, timezone
 
             summary = Summary(
@@ -64,6 +64,9 @@ def process_summarization(
                 summary_text=result.summary_text,
                 key_points=result.key_points,
                 action_items=result.action_items,
+                structured_actions=result.structured_actions,
+                participants_details=result.participants_details,
+                topics=result.topics,
                 sentiment=result.sentiment,
                 language=summary_language,
                 tokens_used=result.tokens_used,
@@ -71,6 +74,9 @@ def process_summarization(
                 completed_at=datetime.now(timezone.utc),
             )
             session.add(summary)
+
+            # Auto-link call to contact based on extracted phone numbers
+            _try_link_contact(session, call, result.participants_details)
 
             call.status = CallStatus.COMPLETED
             session.commit()
@@ -94,3 +100,35 @@ def process_summarization(
         except Exception:
             logger.exception("Failed to update call status")
         raise self.retry(exc=exc)
+
+
+def _try_link_contact(session, call, participants_details: list[dict]) -> None:
+    """Try to link a call to a contact based on phone numbers in participants."""
+    if not participants_details or call.user_id is None:
+        return
+
+    try:
+        from src.models.contact import Contact
+        from src.services.contact_service import extract_phone_numbers
+
+        phones = extract_phone_numbers(participants_details)
+        if not phones:
+            return
+
+        # Search for matching contacts (sync query for Celery)
+        for phone in phones:
+            contact = session.query(Contact).filter(
+                Contact.user_id == call.user_id,
+                Contact.phone_number == phone,
+            ).first()
+            if contact:
+                call.contact_id = contact.id
+                call.caller_phone = phone
+                logger.info("Linked call %s to contact %s (%s)", call.id, contact.id, contact.name)
+                return
+
+        # Store the first extracted phone even if no contact match
+        if phones:
+            call.caller_phone = phones[0]
+    except Exception:
+        logger.exception("Failed to link contact for call %s", call.id)

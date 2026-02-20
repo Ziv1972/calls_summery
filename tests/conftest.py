@@ -49,3 +49,60 @@ def sample_summary_json():
         "sentiment": "positive",
         "participants": ["Speaker A", "Speaker B"],
     }
+
+
+@pytest.fixture
+def sample_summary_json_v2():
+    """Sample Claude API summary response with structured actions."""
+    return {
+        "summary": "A call about extending the project deadline by two weeks to March 15th.",
+        "key_points": [
+            "Project deadline extension requested",
+            "New deadline set to March 15th",
+            "Updated specs to be sent via email",
+        ],
+        "action_items": [
+            "Send updated specs by end of day",
+            "Update project timeline to reflect March 15th deadline",
+        ],
+        "structured_actions": [
+            {
+                "type": "send_email",
+                "description": "Send updated specs to David",
+                "details": {
+                    "to_name": "David",
+                    "to_email": "david@example.com",
+                    "subject": "Updated Project Specs",
+                    "body_outline": "Attached updated specs as discussed",
+                },
+                "confidence": 0.9,
+            },
+            {
+                "type": "calendar_event",
+                "description": "New deadline March 15th",
+                "details": {
+                    "title": "Project Deadline",
+                    "date": "2026-03-15",
+                    "time": "09:00",
+                    "duration_minutes": 60,
+                },
+                "confidence": 0.8,
+            },
+            {
+                "type": "reminder",
+                "description": "Follow up on specs delivery",
+                "details": {
+                    "date": "2026-02-21",
+                    "time": "17:00",
+                    "note": "Check if specs were sent",
+                },
+                "confidence": 0.7,
+            },
+        ],
+        "participants": [
+            {"speaker_label": "Speaker 0", "name": "David", "role": "Client", "phone": "+972501234567"},
+            {"speaker_label": "Speaker 1", "name": None, "role": "Project Manager", "phone": None},
+        ],
+        "topics": ["project deadline", "specs delivery", "timeline"],
+        "sentiment": "positive",
+    }

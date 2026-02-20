@@ -47,6 +47,9 @@ class User(Base):
     calls: Mapped[list["Call"]] = relationship(  # noqa: F821
         back_populates="user", lazy="selectin"
     )
+    contacts: Mapped[list["Contact"]] = relationship(  # noqa: F821
+        back_populates="user", lazy="selectin"
+    )
     settings: Mapped["UserSettings | None"] = relationship(  # noqa: F821
         back_populates="user", uselist=False, lazy="selectin"
     )

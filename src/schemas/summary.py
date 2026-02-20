@@ -19,6 +19,9 @@ class SummaryResponse(BaseModel):
     summary_text: str | None = None
     key_points: list[str] | None = None
     action_items: list[str] | None = None
+    structured_actions: list[dict] | None = None
+    participants_details: list[dict] | None = None
+    topics: list[str] | None = None
     sentiment: str | None = None
     language: str | None = None
     tokens_used: int | None = None
