@@ -154,82 +154,108 @@ erDiagram
     USERS ||--o| USER_SETTINGS : has
     CALLS ||--o| TRANSCRIPTIONS : has
     CALLS ||--o{ SUMMARIES : has
+    TRANSCRIPTIONS ||--o{ SUMMARIES : produces
     SUMMARIES ||--o{ NOTIFICATIONS : triggers
 
     USERS {
         uuid id PK
-        string email
-        string hashed_password
+        string email UK
+        string password_hash
         string full_name
-        enum plan
+        enum plan "free|pro|business"
         bool is_verified
         bool is_active
         timestamp created_at
+        timestamp updated_at
     }
 
     CALLS {
         uuid id PK
         uuid user_id FK
         string filename
-        string s3_key
+        string original_filename
+        string s3_key UK
         string s3_bucket
         int file_size_bytes
         float duration_seconds
-        enum status
-        enum upload_source
+        string content_type
+        enum status "uploaded|transcribing|transcribed|summarizing|completed|failed"
+        enum upload_source "manual|auto_agent|cloud_sync"
         string language_detected
+        string error_message
         timestamp created_at
+        timestamp updated_at
     }
 
     TRANSCRIPTIONS {
         uuid id PK
-        uuid call_id FK
-        string provider
-        text full_text
+        uuid call_id FK_UK
+        string provider "deepgram"
+        string external_id
+        text text
         float confidence
         string language
+        float duration_seconds
         json speakers
         int words_count
-        enum status
+        enum status "pending|processing|completed|failed"
+        string error_message
+        timestamp created_at
+        timestamp completed_at
     }
 
     SUMMARIES {
         uuid id PK
         uuid call_id FK
         uuid transcription_id FK
+        string provider "claude"
         string model
         text summary_text
         json key_points
         json action_items
         string sentiment
+        string language
         int tokens_used
+        enum status "pending|processing|completed|failed"
+        string error_message
+        timestamp created_at
+        timestamp completed_at
     }
 
     NOTIFICATIONS {
         uuid id PK
         uuid summary_id FK
-        enum delivery_type
+        enum delivery_type "email|whatsapp"
         string recipient
-        enum status
+        enum status "pending|sent|failed|delivered"
+        string external_id
+        string error_message
         timestamp sent_at
+        timestamp created_at
     }
 
     API_KEYS {
         uuid id PK
         uuid user_id FK
-        string key_hash
         string name
+        string key_prefix
+        string key_hash UK
         bool is_active
+        timestamp last_used_at
         timestamp created_at
     }
 
     USER_SETTINGS {
         uuid id PK
-        uuid user_id FK
+        uuid user_id FK_UK
+        bool auto_upload_enabled
+        string summary_language "auto|he|en"
         string email_recipient
-        string whatsapp_number
-        string summary_language
-        bool auto_notify
+        string whatsapp_recipient
+        bool notify_on_complete
+        enum notification_method "email|whatsapp|both|none"
+        timestamp created_at
+        timestamp updated_at
     }
 ```
 
@@ -404,12 +430,18 @@ calls_summery/
 | `DEEPGRAM_API_KEY` | Deepgram transcription API | Yes |
 | `ANTHROPIC_API_KEY` | Claude summarization API | Yes |
 | `SENDGRID_API_KEY` | SendGrid email API | For notifications |
+| `SENDGRID_FROM_EMAIL` | Sender email address | For notifications |
 | `TWILIO_ACCOUNT_SID` | Twilio account SID | For WhatsApp |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token | For WhatsApp |
 | `TWILIO_WHATSAPP_NUMBER` | Twilio WhatsApp sender | For WhatsApp |
 | `SECRET_KEY` | JWT signing key (min 32 chars) | Yes |
+| `ALLOWED_ORIGINS` | CORS origins (comma-separated or `*`) | Yes |
 | `FRONTEND_URL` | Public URL for email links | Yes |
+| `ENVIRONMENT` | Environment (`production`/`development`) | No |
+| `DEBUG` | Debug mode (`true`/`false`) | No |
 | `WATCH_FOLDER` | Local folder to watch for recordings | For agent |
+| `API_ENDPOINT` | API webhook URL for agent | For agent |
+| `API_KEY` | API key for agent auth | For agent |
 
 ## Tests
 

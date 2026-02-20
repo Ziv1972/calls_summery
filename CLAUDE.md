@@ -66,6 +66,7 @@ src/
 ├── schemas/                  # Pydantic request/response schemas
 ├── repositories/             # Data access layer (base CRUD + per-entity)
 ├── services/                 # Business logic
+│   ├── auth_service.py       # JWT + API key auth
 │   ├── call_service.py       # Pipeline orchestration
 │   ├── storage_service.py    # S3 operations
 │   ├── transcription_service.py  # Deepgram
