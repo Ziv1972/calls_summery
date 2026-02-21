@@ -38,49 +38,56 @@ async def s3_upload_event(
     Requires authentication (JWT or API key).
     The call is assigned to the authenticated user.
     """
-    from src.models.call import CallStatus, UploadSource
-    from src.repositories.call_repository import CallRepository
+    try:
+        from src.models.call import CallStatus, UploadSource
+        from src.repositories.call_repository import CallRepository
 
-    call_repo = CallRepository(session)
+        call_repo = CallRepository(session)
 
-    # Check if already processed
-    existing = await call_repo.find_by_s3_key(payload.key)
-    if existing is not None:
-        logger.info("S3 key %s already registered, skipping", payload.key)
-        return {"status": "already_exists", "call_id": str(existing.id)}
+        # Check if already processed
+        existing = await call_repo.find_by_s3_key(payload.key)
+        if existing is not None:
+            logger.info("S3 key %s already registered, skipping", payload.key)
+            return {"status": "already_exists", "call_id": str(existing.id)}
 
-    # Create call record assigned to current user
-    filename = payload.key.split("/")[-1]
-    original = payload.original_filename or filename
-    call = await call_repo.create({
-        "filename": filename,
-        "original_filename": original,
-        "s3_key": payload.key,
-        "s3_bucket": payload.bucket,
-        "file_size_bytes": payload.size,
-        "content_type": payload.content_type,
-        "upload_source": UploadSource(payload.upload_source) if payload.upload_source in [e.value for e in UploadSource] else UploadSource.AUTO_AGENT,
-        "status": CallStatus.UPLOADED,
-        "user_id": current_user.id,
-    })
-    await session.commit()
+        # Create call record assigned to current user
+        filename = payload.key.split("/")[-1]
+        original = payload.original_filename or filename
+        call = await call_repo.create({
+            "filename": filename,
+            "original_filename": original,
+            "s3_key": payload.key,
+            "s3_bucket": payload.bucket,
+            "file_size_bytes": payload.size,
+            "content_type": payload.content_type,
+            "upload_source": UploadSource(payload.upload_source) if payload.upload_source in [e.value for e in UploadSource] else UploadSource.AUTO_AGENT,
+            "status": CallStatus.UPLOADED,
+            "user_id": current_user.id,
+        })
+        await session.commit()
 
-    # Read language preference from user settings
-    from src.models.settings import UserSettings
+        # Read language preference from user settings
+        from src.models.settings import UserSettings
 
-    result = await session.execute(
-        select(UserSettings).where(UserSettings.user_id == current_user.id)
-    )
-    user_settings = result.scalar_one_or_none()
-    language = user_settings.summary_language if user_settings else "he"
+        result = await session.execute(
+            select(UserSettings).where(UserSettings.user_id == current_user.id)
+        )
+        user_settings = result.scalar_one_or_none()
+        language = user_settings.summary_language if user_settings else "he"
 
-    # Trigger processing
-    from src.tasks.transcription_tasks import process_transcription
+        # Trigger processing (don't fail webhook if Celery is unavailable)
+        try:
+            from src.tasks.transcription_tasks import process_transcription
 
-    process_transcription.delay(str(call.id), language)
+            process_transcription.delay(str(call.id), language)
+        except Exception as e:
+            logger.error("Failed to queue transcription task for call %s: %s", call.id, e)
 
-    logger.info("Auto-upload registered: %s (call_id=%s, user=%s)", payload.key, call.id, current_user.id)
-    return {"status": "processing", "call_id": str(call.id)}
+        logger.info("Auto-upload registered: %s (call_id=%s, user=%s)", payload.key, call.id, current_user.id)
+        return {"status": "processing", "call_id": str(call.id)}
+    except Exception as e:
+        logger.exception("Webhook s3-upload failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Webhook error: {str(e)}")
 
 
 async def verify_twilio_signature(request: Request) -> None:
