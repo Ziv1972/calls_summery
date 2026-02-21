@@ -49,10 +49,12 @@ class Call(Base):
     caller_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     upload_source: Mapped[UploadSource] = mapped_column(
-        Enum(UploadSource), nullable=False, default=UploadSource.MANUAL
+        Enum(UploadSource, values_callable=lambda e: [x.value for x in e]),
+        nullable=False, default=UploadSource.MANUAL
     )
     status: Mapped[CallStatus] = mapped_column(
-        Enum(CallStatus), nullable=False, default=CallStatus.UPLOADED
+        Enum(CallStatus, values_callable=lambda e: [x.value for x in e]),
+        nullable=False, default=CallStatus.UPLOADED
     )
     language_detected: Mapped[str | None] = mapped_column(String(10), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(2000), nullable=True)
