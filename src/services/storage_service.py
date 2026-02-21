@@ -32,6 +32,16 @@ class PresignedUrlResult:
     expires_in: int
 
 
+@dataclass(frozen=True)
+class PresignedPutResult:
+    """Immutable presigned PUT URL result for client-side uploads."""
+
+    upload_url: str
+    s3_key: str
+    bucket: str
+    expires_in: int
+
+
 class StorageService:
     """S3 storage service for audio files."""
 
@@ -96,6 +106,44 @@ class StorageService:
             raise
 
         return PresignedUrlResult(url=url, expires_in=expires_in)
+
+    def generate_presigned_put_url(
+        self,
+        original_filename: str,
+        content_type: str,
+        expires_in: int = 900,
+    ) -> PresignedPutResult:
+        """Generate a time-limited presigned PUT URL for client-side upload.
+
+        Used by mobile apps that cannot embed AWS credentials.
+        Returns the upload URL, generated S3 key, and bucket.
+        """
+        file_ext = original_filename.rsplit(".", 1)[-1] if "." in original_filename else "mp3"
+        s3_key = f"calls/{uuid.uuid4()}.{file_ext}"
+
+        try:
+            url = self._client.generate_presigned_url(
+                "put_object",
+                Params={
+                    "Bucket": self._bucket,
+                    "Key": s3_key,
+                    "ContentType": content_type,
+                    "Metadata": {"original_filename": quote(original_filename)},
+                },
+                ExpiresIn=expires_in,
+            )
+        except ClientError as e:
+            logger.error("Failed to generate presigned PUT URL: %s", e)
+            raise
+
+        logger.info("Generated presigned PUT URL for %s -> s3://%s/%s", original_filename, self._bucket, s3_key)
+
+        return PresignedPutResult(
+            upload_url=url,
+            s3_key=s3_key,
+            bucket=self._bucket,
+            expires_in=expires_in,
+        )
 
     def delete_file(self, s3_key: str) -> bool:
         """Delete a file from S3."""

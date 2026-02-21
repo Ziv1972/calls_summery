@@ -44,6 +44,65 @@ class TestS3UploadWebhook:
         assert data["status"] == "processing"
         assert "call_id" in data
 
+    async def test_s3_upload_with_mobile_source(self, client, mock_session, mock_user):
+        """S3 upload webhook accepts upload_source from payload."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        mock_call = MagicMock()
+        mock_call.id = uuid.uuid4()
+
+        with (
+            patch("src.repositories.call_repository.CallRepository.find_by_s3_key", return_value=None),
+            patch("src.repositories.call_repository.CallRepository.create", return_value=mock_call) as mock_create,
+            patch("src.tasks.transcription_tasks.process_transcription"),
+        ):
+            response = await client.post(
+                "/api/webhooks/s3-upload",
+                json={
+                    "bucket": "test-bucket",
+                    "key": "calls/mobile-file.m4a",
+                    "size": 500000,
+                    "content_type": "audio/x-m4a",
+                    "original_filename": "call_recording.m4a",
+                    "upload_source": "mobile_auto",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "processing"
+        create_args = mock_create.call_args[0][0]
+        assert create_args["upload_source"].value == "mobile_auto"
+
+    async def test_s3_upload_with_invalid_source_falls_back(self, client, mock_session, mock_user):
+        """Invalid upload_source falls back to auto_agent."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        mock_call = MagicMock()
+        mock_call.id = uuid.uuid4()
+
+        with (
+            patch("src.repositories.call_repository.CallRepository.find_by_s3_key", return_value=None),
+            patch("src.repositories.call_repository.CallRepository.create", return_value=mock_call) as mock_create,
+            patch("src.tasks.transcription_tasks.process_transcription"),
+        ):
+            response = await client.post(
+                "/api/webhooks/s3-upload",
+                json={
+                    "bucket": "test-bucket",
+                    "key": "calls/test.mp3",
+                    "size": 1000,
+                    "upload_source": "invalid_source",
+                },
+            )
+
+        assert response.status_code == 200
+        create_args = mock_create.call_args[0][0]
+        assert create_args["upload_source"].value == "auto_agent"
+
     async def test_duplicate_s3_key_returns_already_exists(self, client, mock_session):
         """Duplicate S3 key returns already_exists."""
         existing_call = MagicMock()

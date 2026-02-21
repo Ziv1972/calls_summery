@@ -24,6 +24,7 @@ class S3EventPayload(BaseModel):
     size: int
     content_type: str = "audio/mpeg"
     original_filename: str | None = None
+    upload_source: str = "auto_agent"
 
 
 @router.post("/s3-upload")
@@ -58,7 +59,7 @@ async def s3_upload_event(
         "s3_bucket": payload.bucket,
         "file_size_bytes": payload.size,
         "content_type": payload.content_type,
-        "upload_source": UploadSource.AUTO_AGENT,
+        "upload_source": UploadSource(payload.upload_source) if payload.upload_source in [e.value for e in UploadSource] else UploadSource.AUTO_AGENT,
         "status": CallStatus.UPLOADED,
         "user_id": current_user.id,
     })

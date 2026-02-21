@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 
-from src.services.storage_service import PresignedUrlResult, StorageService, UploadResult
+from src.services.storage_service import PresignedPutResult, PresignedUrlResult, StorageService, UploadResult
 
 
 class TestUploadResult:
@@ -37,6 +37,27 @@ class TestPresignedUrlResult:
         result = PresignedUrlResult(url="u", expires_in=60)
         with pytest.raises(AttributeError):
             result.url = "new"
+
+
+class TestPresignedPutResult:
+    """Test PresignedPutResult immutable dataclass."""
+
+    def test_create_presigned_put_result(self):
+        result = PresignedPutResult(
+            upload_url="https://s3.amazonaws.com/put",
+            s3_key="calls/uuid.m4a",
+            bucket="test-bucket",
+            expires_in=900,
+        )
+        assert result.upload_url == "https://s3.amazonaws.com/put"
+        assert result.s3_key == "calls/uuid.m4a"
+        assert result.bucket == "test-bucket"
+        assert result.expires_in == 900
+
+    def test_presigned_put_result_is_immutable(self):
+        result = PresignedPutResult(upload_url="u", s3_key="k", bucket="b", expires_in=60)
+        with pytest.raises(AttributeError):
+            result.upload_url = "new"
 
 
 class TestStorageService:
@@ -130,3 +151,66 @@ class TestStorageService:
 
         svc = StorageService()
         assert svc.delete_file("calls/missing.mp3") is False
+
+    @patch("src.services.storage_service.boto3")
+    @patch("src.services.storage_service.get_settings")
+    def test_generate_presigned_put_url(self, mock_settings, mock_boto3):
+        mock_settings.return_value = MagicMock(
+            s3_bucket_name="test-bucket", aws_access_key_id="k",
+            aws_secret_access_key="s", aws_region="r",
+        )
+        mock_client = MagicMock()
+        mock_client.generate_presigned_url.return_value = "https://presigned-put.url"
+        mock_boto3.client.return_value = mock_client
+
+        svc = StorageService()
+        result = svc.generate_presigned_put_url("test.m4a", "audio/x-m4a", expires_in=900)
+
+        assert isinstance(result, PresignedPutResult)
+        assert result.upload_url == "https://presigned-put.url"
+        assert result.bucket == "test-bucket"
+        assert result.expires_in == 900
+        assert result.s3_key.startswith("calls/")
+        assert result.s3_key.endswith(".m4a")
+        mock_client.generate_presigned_url.assert_called_once_with(
+            "put_object",
+            Params={
+                "Bucket": "test-bucket",
+                "Key": result.s3_key,
+                "ContentType": "audio/x-m4a",
+                "Metadata": {"original_filename": "test.m4a"},
+            },
+            ExpiresIn=900,
+        )
+
+    @patch("src.services.storage_service.boto3")
+    @patch("src.services.storage_service.get_settings")
+    def test_generate_presigned_put_url_s3_error(self, mock_settings, mock_boto3):
+        mock_settings.return_value = MagicMock(
+            s3_bucket_name="b", aws_access_key_id="k",
+            aws_secret_access_key="s", aws_region="r",
+        )
+        mock_client = MagicMock()
+        mock_client.generate_presigned_url.side_effect = ClientError(
+            {"Error": {"Code": "500", "Message": "Internal"}}, "PutObject"
+        )
+        mock_boto3.client.return_value = mock_client
+
+        svc = StorageService()
+        with pytest.raises(ClientError):
+            svc.generate_presigned_put_url("test.mp3", "audio/mpeg")
+
+    @patch("src.services.storage_service.boto3")
+    @patch("src.services.storage_service.get_settings")
+    def test_generate_presigned_put_url_no_extension(self, mock_settings, mock_boto3):
+        mock_settings.return_value = MagicMock(
+            s3_bucket_name="b", aws_access_key_id="k",
+            aws_secret_access_key="s", aws_region="r",
+        )
+        mock_client = MagicMock()
+        mock_client.generate_presigned_url.return_value = "https://url"
+        mock_boto3.client.return_value = mock_client
+
+        svc = StorageService()
+        result = svc.generate_presigned_put_url("noext", "audio/mpeg")
+        assert result.s3_key.endswith(".mp3")
