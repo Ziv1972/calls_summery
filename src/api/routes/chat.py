@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.config.settings import get_settings
-from src.services.auth_service import get_current_user
+from src.api.middleware.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
