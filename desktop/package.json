@@ -1,0 +1,58 @@
+{
+  "name": "calls-summary-desktop",
+  "version": "1.0.0",
+  "description": "AI-powered call transcription and summarization desktop app",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "npm run build:electron && electron .",
+    "build": "tsc && vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "start": "npm run build && npm run build:electron && electron .",
+    "package:win": "npm run build && npm run build:electron && electron-builder --win",
+    "lint": "eslint src electron --ext .ts,.tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.1",
+    "zustand": "^5.0.5",
+    "axios": "^1.9.0",
+    "date-fns": "^4.1.0",
+    "clsx": "^2.1.1",
+    "@anthropic-ai/sdk": "^0.52.0",
+    "electron-store": "^10.0.0",
+    "chokidar": "^4.0.3",
+    "@aws-sdk/client-s3": "^3.800.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "@types/node": "^22.15.21",
+    "@vitejs/plugin-react": "^4.5.2",
+    "vite": "^6.3.5",
+    "typescript": "^5.8.3",
+    "electron": "^36.3.0",
+    "electron-builder": "^26.0.12",
+    "tailwindcss": "^4.1.7",
+    "@tailwindcss/vite": "^4.1.7",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3"
+  },
+  "build": {
+    "appId": "com.calls-summary.desktop",
+    "productName": "Calls Summary",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "public/icons/icon.ico"
+    }
+  }
+}

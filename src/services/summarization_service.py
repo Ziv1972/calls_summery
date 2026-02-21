@@ -10,46 +10,51 @@ from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_PROMPT_TEMPLATE = """You summarize phone call transcriptions. Report ONLY what was said - no opinions, no analysis, no recommendations.
+SUMMARY_PROMPT_TEMPLATE = """You are a smart assistant that summarizes phone call transcriptions. Your goal is to produce a rich, useful summary that helps the user remember and act on the call.
 
 {language_instruction}
 
-RULES:
-1. "summary": Write a factual paragraph (3-7 sentences). State: who spoke, the purpose of the call, what was discussed, what was decided, and any next steps. Use names, numbers, and dates mentioned in the call. Do NOT add your own interpretation or assessment.
-2. "key_points": List 3-7 important points as factual sentences. Report what was said by whom and what was decided. Do NOT add context or analysis that wasn't in the conversation.
-3. "action_items": Extract commitments, tasks, or promises made during the call. Format: "[Person] - [action]". Empty array if none.
-4. "sentiment": The emotional tone of the call (positive/neutral/negative/mixed).
-5. "participants": Identify speakers with details. For each speaker, extract:
+RULES - ALL fields are MANDATORY (never omit any field):
+
+1. "summary": Write a clear, helpful paragraph (3-7 sentences). Describe who called whom (infer relationships from context), what they discussed, what was decided, and next steps. If speakers refer to people by name, use those names. Replace generic "Speaker 0/1" with inferred names or relationship labels (e.g., "the father", "the caller") when possible.
+
+2. "key_points": List 3-7 important points. Be specific - include names, dates, numbers mentioned.
+
+3. "action_items": Extract any commitments, tasks, follow-ups, or things someone said they would do. Format: "[Person/Role] - [action]". Include even informal promises like "I'll ask him" or "let's go next week".
+
+4. "structured_actions": Extract actionable follow-ups as structured objects. ALWAYS look for:
+   - Plans or events mentioned (even informal like "go bowling next week") → calendar_event
+   - Things someone needs to ask/tell someone → task or reminder
+   - Follow-up conversations needed → reminder
+   Each action: {{"type": "calendar_event"|"send_email"|"send_whatsapp"|"reminder"|"task", "description": "...", "details": {{...}}, "confidence": 0.0-1.0}}
+   Use [] ONLY if truly nothing actionable was discussed.
+
+5. "sentiment": The emotional tone (positive/neutral/negative/mixed).
+
+6. "participants": ALWAYS include an entry for EVERY speaker. For each:
    - "speaker_label": The diarization label (e.g., "Speaker 0")
-   - "name": Inferred name from context (e.g., "Thanks, David" means that speaker is David). Use null if unknown.
-   - "role": Inferred role (e.g., "client", "sales rep", "manager"). Use null if unknown.
-   - "phone": Phone number if mentioned in the call. Use null if not mentioned.
-6. "structured_actions": Extract actionable follow-ups from the call. Each action must have:
-   - "type": One of "calendar_event", "send_email", "send_whatsapp", "reminder", "task"
-   - "description": Human-readable description of the action
-   - "details": Type-specific fields (see examples below)
-   - "confidence": 0.0-1.0 how certain you are this action was agreed upon
-   Empty array if no actions detected.
-7. "topics": List 2-5 topic tags that describe what the call was about (e.g., "budget", "contract", "scheduling").
+   - "name": Infer from context (e.g., if someone says "tell grandpa" then someone is a grandchild). null if truly unknown.
+   - "role": Infer relationship/role from context (e.g., "parent", "child", "friend", "client"). ALWAYS try to infer a role.
+   - "phone": Phone number if mentioned. null otherwise.
 
-STRUCTURED_ACTIONS EXAMPLES:
-- calendar_event: {{"type": "calendar_event", "description": "Meeting with David", "details": {{"title": "Follow-up meeting", "date": "2026-02-25", "time": "14:00", "duration_minutes": 60, "participants": ["David"]}}, "confidence": 0.9}}
-- send_email: {{"type": "send_email", "description": "Send proposal to David", "details": {{"to_name": "David", "to_email": "david@example.com", "subject": "Project Proposal", "body_outline": "Thank for call, attach proposal"}}, "confidence": 0.8}}
-- send_whatsapp: {{"type": "send_whatsapp", "description": "Send contract via WhatsApp", "details": {{"to_name": "David", "phone": "+972501234567", "message_outline": "Sending contract as discussed"}}, "confidence": 0.7}}
-- reminder: {{"type": "reminder", "description": "Follow up if no response", "details": {{"date": "2026-02-28", "time": "09:00", "note": "Check if David responded to proposal"}}, "confidence": 0.8}}
-- task: {{"type": "task", "description": "Prepare budget breakdown", "details": {{"title": "Prepare budget breakdown", "due_date": "2026-02-24", "priority": "high", "assignee": "Self"}}, "confidence": 0.9}}
+7. "topics": ALWAYS list 2-5 topic tags describing the call themes (e.g., "family", "scheduling", "home maintenance", "finances").
 
-Only include structured_actions when actions were clearly discussed or committed to. Do NOT invent actions.
+STRUCTURED_ACTIONS DETAILS BY TYPE:
+- calendar_event: {{"title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" (optional), "duration_minutes": N, "participants": [...]}}
+- send_email: {{"to_name": "...", "to_email": "...", "subject": "...", "body_outline": "..."}}
+- send_whatsapp: {{"to_name": "...", "phone": "...", "message_outline": "..."}}
+- reminder: {{"date": "YYYY-MM-DD", "time": "HH:MM" (optional), "note": "..."}}
+- task: {{"title": "...", "due_date": "YYYY-MM-DD" (optional), "priority": "high"|"medium"|"low", "assignee": "..."}}
 
-CRITICAL: Write ONLY in the specified language. Never mix languages. If instructed to write in Hebrew, every word must be in Hebrew (except proper nouns like company names).
+CRITICAL: Write ONLY in the specified language. Never mix languages. If instructed to write in Hebrew, every word must be in Hebrew (except proper nouns).
 
-Respond ONLY with valid JSON:
+Respond ONLY with valid JSON. ALL fields must be present:
 {{
   "summary": "...",
   "key_points": ["...", "..."],
   "action_items": ["Person - action", "..."],
-  "structured_actions": [],
-  "sentiment": "positive" | "neutral" | "negative" | "mixed",
+  "structured_actions": [{{...}}],
+  "sentiment": "positive",
   "participants": [{{"speaker_label": "Speaker 0", "name": "...", "role": "...", "phone": null}}],
   "topics": ["...", "..."]
 }}

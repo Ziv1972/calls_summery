@@ -40,3 +40,16 @@ Thumbs.db
 
 # Alembic
 alembic/__pycache__/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Debug scripts
+scripts/
+
+# Windows artifacts
+nul
+
+# Node (desktop)
+node_modules/
