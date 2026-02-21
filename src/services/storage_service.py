@@ -128,7 +128,6 @@ class StorageService:
                     "Bucket": self._bucket,
                     "Key": s3_key,
                     "ContentType": content_type,
-                    "Metadata": {"original_filename": quote(original_filename)},
                 },
                 ExpiresIn=expires_in,
             )
